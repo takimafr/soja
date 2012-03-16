@@ -7,7 +7,10 @@
 package com.excilys.stomp.netty.handler;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.MessageEvent;
@@ -25,6 +28,10 @@ import com.excilys.stomp.model.Header;
 public class ClientHandler extends StompHandler {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(ClientHandler.class);
+
+	private static final String[] MESSAGE_USER_HEADERS_FILTER = new String[] { Header.HEADER_DESTINATION,
+			Header.HEADER_SUBSCRIPTION, Header.HEADER_MESSAGE_ID, Header.HEADER_CONTENT_TYPE,
+			Header.HEADER_CONTENT_LENGTH };
 
 	private final List<StompClientListener> stompClientListeners = new ArrayList<StompClientListener>();
 	private boolean connected = false;
@@ -74,10 +81,17 @@ public class ClientHandler extends StompHandler {
 	private void handleMessage(Frame frame) {
 		String topic = frame.getHeaderValue(Header.HEADER_DESTINATION);
 		String message = frame.getBody();
+		
+		// Retrieve user keys
+		Map<String, String> userHeaders = new HashMap<String, String>();
+		Set<String> userKeys = frame.getHeader().allKeys(MESSAGE_USER_HEADERS_FILTER);
+		for (String userKey : userKeys) {
+			userHeaders.put(userKey, frame.getHeaderValue(userKey));
+		}
 
 		// Notify all listeners
 		for (StompClientListener listener : stompClientListeners) {
-			listener.receivedMessage(topic, message);
+			listener.receivedMessage(topic, message, userHeaders);
 		}
 	}
 

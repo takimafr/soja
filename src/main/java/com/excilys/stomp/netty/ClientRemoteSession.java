@@ -35,6 +35,9 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(ClientRemoteSession.class);
 
+	private static final String[] SEND_USER_HEADERS_FILTER = new String[] { Header.HEADER_DESTINATION,
+			Header.HEADER_TRANSACTION, Header.HEADER_CONTENT_TYPE, Header.HEADER_CONTENT_LENGTH, Header.HEADER_RECEIPT };
+
 	private final Channel channel;
 	private Authentication authentication;
 	private String sessionToken;
@@ -186,6 +189,7 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 	 */
 	public void handleSend(Frame frame) {
 		String topic = frame.getHeaderValue(Header.HEADER_DESTINATION);
+		String contentType = frame.getHeaderValue(Header.HEADER_CONTENT_TYPE);
 		String message = frame.getBody();
 
 		// TODO: Check for dead-lock
@@ -195,7 +199,17 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 					Set<ClientRemoteSession> subscribers = SubscriptionManager.getInstance().retrieveSubscribers(topic);
 					
 					if (subscribers.size() > 0) {
-						Frame messageFrame = new MessageFrame(topic, message, null);
+						MessageFrame messageFrame = new MessageFrame(topic, message, null);
+						// Add content-type id present on the SEND command
+						if (contentType != null) {
+							messageFrame.setContentType(contentType);
+						}
+
+						// Add user keys
+						Set<String> userKeys = frame.getHeader().allKeys(SEND_USER_HEADERS_FILTER);
+						for (String userKey : userKeys) {
+							messageFrame.getHeader().put(userKey, frame.getHeaderValue(userKey));
+						}
 
 						// Send the message frame to each subscriber
 						for (ClientRemoteSession subscriber : subscribers) {

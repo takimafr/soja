@@ -7,6 +7,7 @@
 package com.excilys.stomp;
 
 import java.net.InetSocketAddress;
+import java.util.Map;
 import java.util.concurrent.Executors;
 
 import org.jboss.netty.bootstrap.ClientBootstrap;
@@ -145,7 +146,14 @@ public class StompClient {
 	}
 
 	public boolean send(String topic, String message, boolean waitForReceipt) {
+		return send(topic, message, null, waitForReceipt);
+	}
+
+	public boolean send(String topic, String message, Map<String, String> additionalHeaders, boolean waitForReceipt) {
 		Frame frame = new SendFrame(topic, message);
+		if (additionalHeaders != null) {
+			frame.getHeader().putAll(additionalHeaders);
+		}
 		clientHandler.sendFrame(frame);
 		return false;
 	}

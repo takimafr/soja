@@ -6,6 +6,9 @@
  */
 package com.excilys.stomp;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,6 +27,9 @@ public class ClientMain implements StompClientListener {
 	}
 
 	public ClientMain() {
+		Map<String, String> userHeaders = new HashMap<String, String>();
+		userHeaders.put("key1", "value1");
+
 		for (int i = 0; i < 5; i++) {
 			final int id = i;
 			StompClient client = new StompClient("127.0.0.1", 61626);
@@ -38,9 +44,9 @@ public class ClientMain implements StompClientListener {
 				// } catch (InterruptedException e) {
 				// e.printStackTrace();
 				// }
-				client.send("/topic", "plop-" + id, false);
+				client.send("/topic", "plop-" + id, userHeaders, false);
 			}
-			
+
 			// }
 			//
 			// try {
@@ -62,8 +68,8 @@ public class ClientMain implements StompClientListener {
 	}
 
 	@Override
-	public void receivedMessage(String topic, String message) {
-		LOGGER.debug("Received data on topic {} : {}", topic, message);
+	public void receivedMessage(String topic, String message, Map<String, String> userHeaders) {
+		LOGGER.debug("Received data on topic {} - userHeaders = {} : {}", new Object[] { topic, userHeaders, message });
 	}
 
 	@Override

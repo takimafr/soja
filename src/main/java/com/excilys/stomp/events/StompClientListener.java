@@ -6,6 +6,8 @@
  */
 package com.excilys.stomp.events;
 
+import java.util.Map;
+
 /**
  * @author dvilleneuve
  * 
@@ -16,7 +18,7 @@ public interface StompClientListener {
 
 	void disconnected();
 
-	void receivedMessage(String topic, String message);
+	void receivedMessage(String topic, String message, Map<String, String> userHeaders);
 
 	void receivedError(String shortMessage, String description);
 

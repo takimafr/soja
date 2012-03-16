@@ -7,6 +7,8 @@
 package com.excilys.stomp.model;
 
 import java.util.HashMap;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * @author dvilleneuve
@@ -65,5 +67,13 @@ public class Header extends HashMap<String, String> {
 			put(key, value);
 		}
 		return this;
+	}
+	
+	public Set<String> allKeys(String[] filters) {
+		TreeSet<String> filteredKeys = new TreeSet<String>(keySet());
+		for (String filter : filters) {
+			filteredKeys.remove(filter);
+		}
+		return filteredKeys;
 	}
 }

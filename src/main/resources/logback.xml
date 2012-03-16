@@ -6,7 +6,7 @@
 		</encoder>
 	</appender>
 
-	<logger name="com.excilys.stomp" level="DEBUG" />
+	<logger name="com.excilys.stomp" level="TRACE" />
 	
 	<root level="WARN">
 		<appender-ref ref="STDOUT" />
