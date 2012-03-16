@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 
 import com.excilys.stomp.StompServer;
 import com.excilys.stomp.authentication.Authentication;
+import com.excilys.stomp.exception.UnsupportedVersionException;
 import com.excilys.stomp.model.Frame;
 import com.excilys.stomp.model.Header;
 import com.excilys.stomp.model.frame.ConnectedFrame;
@@ -50,7 +51,7 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 	 * @param frame
 	 */
 	public void sendFrame(Frame frame) {
-		LOGGER.debug("Sending : {}", frame);
+		LOGGER.trace("Sending : {}", frame);
 		channel.write(frame);
 	}
 
@@ -100,26 +101,27 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 	 * 
 	 * @param frame
 	 */
-	public void handleConnect(Frame frame) throws LoginException {
+	public void handleConnect(Frame frame) throws LoginException, UnsupportedVersionException {
 		String[] acceptedVersions = frame.getHeaderValue(Header.HEADER_ACCEPT_VERSION).split(",");
 
 		// Check the compatibility of the client and server STOMP version
 		if (ArrayUtils.contains(acceptedVersions, StompServer.STOMP_VERSION)) {
+			String login = frame.getHeaderValue(Header.HEADER_LOGIN);
+			String password = frame.getHeaderValue(Header.HEADER_PASSCODE);
+
 			try {
 				// Check the credentials of the user
 				synchronized (authentication) {
-					String login = frame.getHeaderValue(Header.HEADER_LOGIN);
-					String password = frame.getHeaderValue(Header.HEADER_PASSCODE);
 					sessionToken = authentication.connect(login, password);
 				}
 				sendFrame(new ConnectedFrame(StompServer.STOMP_VERSION));
 			} catch (LoginException e) {
 				sendError("Bad credentials", "Username or passcode incorrect");
-				throw new LoginException();
+				throw new LoginException("Login failed for user '" + login + "'");
 			}
 		} else {
 			sendError("Supported version doesn't match", "Supported protocol version is 1.1");
-			throw new LoginException();
+			throw new UnsupportedVersionException();
 		}
 		return;
 	}

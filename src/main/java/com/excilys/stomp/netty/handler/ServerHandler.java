@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import com.excilys.stomp.authentication.AllowAllAuthentication;
 import com.excilys.stomp.authentication.Authentication;
+import com.excilys.stomp.exception.UnsupportedVersionException;
 import com.excilys.stomp.model.Frame;
 import com.excilys.stomp.netty.ClientRemoteSession;
 
@@ -57,7 +58,7 @@ public class ServerHandler extends StompHandler {
 			return;
 		}
 		Frame frame = (Frame) event.getMessage();
-		LOGGER.debug("Received frame : {}", frame);
+		LOGGER.trace("Received frame : {}", frame);
 
 		// Retrieve the session for this client
 		ClientRemoteSession clientRemoteSession = clientSessions.get(event.getChannel().getId());
@@ -67,6 +68,10 @@ public class ServerHandler extends StompHandler {
 				try {
 					clientRemoteSession.handleConnect(frame);
 				} catch (LoginException e) {
+					LOGGER.info("Login failed", e);
+					disconnectClientSession(event.getChannel());
+				} catch (UnsupportedVersionException e) {
+					LOGGER.info("The server doesn't support the same STOMP version as the client");
 					disconnectClientSession(event.getChannel());
 				}
 			}
@@ -95,6 +100,7 @@ public class ServerHandler extends StompHandler {
 	}
 
 	private void disconnectClientSession(Channel channel) {
+		LOGGER.debug("Disconnecting client session {}", channel.getRemoteAddress());
 		channel.close().awaitUninterruptibly(15000);
 		clientSessions.remove(channel.getId());
 	}
