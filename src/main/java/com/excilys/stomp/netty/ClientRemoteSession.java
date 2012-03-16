@@ -198,6 +198,15 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 		}
 	}
 
+	/**
+	 * Handle UNKNOWN command
+	 * 
+	 * @param frame
+	 */
+	public void handleUnknown(Frame frame) {
+		sendError("Unkown command", "The command '" + frame.getCommand() + "' is unkown and can't be managed");
+	}
+
 	public Authentication getAuthentication() {
 		return authentication;
 	}

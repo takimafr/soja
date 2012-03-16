@@ -87,6 +87,10 @@ public class ServerHandler extends StompHandler {
 			else if (frame.isCommand(Frame.COMMAND_SEND)) {
 				clientRemoteSession.handleSend(frame);
 			}
+			// UNKNOWN
+			else {
+				clientRemoteSession.handleUnknown(frame);
+			}
 		}
 	}
 

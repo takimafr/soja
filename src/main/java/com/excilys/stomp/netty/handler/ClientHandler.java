@@ -55,6 +55,10 @@ public class ClientHandler extends StompHandler {
 			else if (frame.isCommand(Frame.COMMAND_RECEIPT)) {
 				handleReceipt(frame);
 			}
+			// UNKNOWN
+			else {
+				LOGGER.error("The command '{}' is unkown and can't be managed", frame.getCommand());
+			}
 		}
 	}
 
