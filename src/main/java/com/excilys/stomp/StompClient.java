@@ -139,7 +139,6 @@ public class StompClient {
 	}
 
 	public boolean unsubscribe(String topic, boolean waitForReceipt) {
-		// TODO: Keep a map of id for topic subscription
 		Frame frame = new UnsubscribeFrame(topic);
 		clientHandler.sendFrame(frame);
 		return false;

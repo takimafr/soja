@@ -6,6 +6,8 @@
  */
 package com.excilys.stomp.netty;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 import javax.security.auth.login.LoginException;
@@ -36,6 +38,7 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 	private final Channel channel;
 	private Authentication authentication;
 	private String sessionToken;
+	private Map<String, String> subscriptionIds;
 
 	// subscriptions (topic + ack)
 	// token
@@ -43,6 +46,7 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 	public ClientRemoteSession(Channel channel, Authentication authentication) {
 		this.channel = channel;
 		this.authentication = authentication;
+		this.subscriptionIds = new HashMap<String, String>();
 	}
 
 	/**
@@ -143,11 +147,13 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 	 */
 	public void handleSubscribe(Frame frame) {
 		String topic = frame.getHeaderValue(Header.HEADER_DESTINATION);
+		String subscriptionId = frame.getHeaderValue(Header.HEADER_SUBSCRIPTION_ID);
 
 		// TODO: Check for dead-lock
 		synchronized (authentication) {
 			if (authentication.canSubscribe(sessionToken, topic)) {
 				synchronized (SubscriptionManager.class) {
+					subscriptionIds.put(subscriptionId, topic);
 					SubscriptionManager.getInstance().addSubscriber(topic, this);
 				}
 				manageReceipt(frame);
@@ -163,9 +169,12 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 	 * @param frame
 	 */
 	public void handleUnsubscribe(Frame frame) {
-		String topic = frame.getHeaderValue(Header.HEADER_DESTINATION);
+		String subscriptionId = frame.getHeaderValue(Header.HEADER_SUBSCRIPTION_ID);
+		String topic = subscriptionIds.get(subscriptionId);
+
 		synchronized (SubscriptionManager.class) {
 			SubscriptionManager.getInstance().removeSubscriber(topic, this);
+			subscriptionIds.remove(subscriptionId);
 		}
 		manageReceipt(frame);
 	}
@@ -184,6 +193,7 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 			if (authentication.canSubscribe(sessionToken, topic)) {
 				synchronized (SubscriptionManager.class) {
 					Set<ClientRemoteSession> subscribers = SubscriptionManager.getInstance().retrieveSubscribers(topic);
+					
 					if (subscribers.size() > 0) {
 						Frame messageFrame = new MessageFrame(topic, message, null);
 
