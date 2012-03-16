@@ -29,6 +29,6 @@ public class FrameEncoder extends OneToOneEncoder {
 			return msg;
 		}
 		String frameString = FrameSerializer.serializeFrame((Frame) msg);
-		return ChannelBuffers.copiedBuffer((String) frameString, Charset.defaultCharset());
+		return ChannelBuffers.copiedBuffer((String) frameString, Charset.forName("UTF-8"));
 	}
 }
