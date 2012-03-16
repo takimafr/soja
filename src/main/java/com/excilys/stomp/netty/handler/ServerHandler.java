@@ -50,7 +50,15 @@ public class ServerHandler extends StompHandler {
 			clientSessions.put(channelId, new ClientRemoteSession(e.getChannel(), globalAuthentication));
 		}
 	}
-
+	
+	@Override
+	public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
+		super.channelDisconnected(ctx, e);
+		LOGGER.debug("Client {} disconnected. Stopping client session...", ctx.getChannel().getRemoteAddress());
+		
+		disconnectClientSession(ctx.getChannel());
+	}
+	
 	@Override
 	public void messageReceived(ChannelHandlerContext ctx, MessageEvent event) throws Exception {
 		if (!(event.getMessage() instanceof Frame)) {
@@ -102,6 +110,7 @@ public class ServerHandler extends StompHandler {
 	private void disconnectClientSession(Channel channel) {
 		LOGGER.debug("Disconnecting client session {}", channel.getRemoteAddress());
 		channel.close().awaitUninterruptibly(15000);
+		channel.unbind().awaitUninterruptibly(15000);
 		clientSessions.remove(channel.getId());
 	}
 
