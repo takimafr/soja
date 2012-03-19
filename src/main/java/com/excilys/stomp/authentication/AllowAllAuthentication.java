@@ -14,8 +14,6 @@ import javax.security.auth.login.LoginException;
  */
 public class AllowAllAuthentication implements Authentication {
 	
-	public static final Authentication INSTANCE = new AllowAllAuthentication();
-
 	public String connect(String username, String password) throws LoginException {
 		return "token-" + username;
 	}

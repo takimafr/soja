@@ -100,7 +100,7 @@ public class StompClient {
 			LOGGER.debug("Connected to {}:{}. Login with username {}...", new Object[] { hostname, port, username });
 
 			// When connected, send a CONNECT command
-			channel.write(new ConnectFrame(SUPPORTED_STOMP_VERSION, hostname, username, password));
+			clientHandler.sendFrame(new ConnectFrame(SUPPORTED_STOMP_VERSION, hostname, username, password));
 			return true;
 		}
 		return false;

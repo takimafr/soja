@@ -18,7 +18,6 @@ import org.jboss.netty.channel.MessageEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.excilys.stomp.authentication.AllowAllAuthentication;
 import com.excilys.stomp.authentication.Authentication;
 import com.excilys.stomp.exception.UnsupportedVersionException;
 import com.excilys.stomp.model.Frame;
@@ -32,11 +31,11 @@ public class ServerHandler extends StompHandler {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(ServerHandler.class);
 
-	private Authentication globalAuthentication;
+	private Authentication authentication;
 	private Map<Integer, ClientRemoteSession> clientSessions = new HashMap<Integer, ClientRemoteSession>();
 
-	public ServerHandler() {
-		this.globalAuthentication = AllowAllAuthentication.INSTANCE;
+	public ServerHandler(Authentication authentication) {
+		this.authentication = authentication;
 	}
 
 	@Override
@@ -47,18 +46,18 @@ public class ServerHandler extends StompHandler {
 		// When a client connect to the server, we allocate to him a ClientSession instance (based on the channel id)
 		Integer channelId = e.getChannel().getId();
 		if (!clientSessions.containsKey(channelId)) {
-			clientSessions.put(channelId, new ClientRemoteSession(e.getChannel(), globalAuthentication));
+			clientSessions.put(channelId, new ClientRemoteSession(e.getChannel(), authentication));
 		}
 	}
-	
+
 	@Override
 	public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
 		super.channelDisconnected(ctx, e);
 		LOGGER.debug("Client {} disconnected. Stopping client session...", ctx.getChannel().getRemoteAddress());
-		
+
 		disconnectClientSession(ctx.getChannel());
 	}
-	
+
 	@Override
 	public void messageReceived(ChannelHandlerContext ctx, MessageEvent event) throws Exception {
 		if (!(event.getMessage() instanceof Frame)) {
@@ -112,16 +111,6 @@ public class ServerHandler extends StompHandler {
 		channel.close().awaitUninterruptibly(15000);
 		channel.unbind().awaitUninterruptibly(15000);
 		clientSessions.remove(channel.getId());
-	}
-
-	public Authentication getAuthentication() {
-		return globalAuthentication;
-	}
-
-	public void setAuthentication(Authentication authentication) {
-		synchronized (this.globalAuthentication) {
-			this.globalAuthentication = authentication;
-		}
 	}
 
 }

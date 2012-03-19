@@ -38,11 +38,11 @@ public class StompServer {
 	private Channel acceptorChannel;
 	private ServerHandler serverHandler;
 
-	public StompServer(int port) {
+	public StompServer(int port, Authentication authentication) {
 		this.port = port;
 		this.serverBootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool(),
 				Executors.newCachedThreadPool()));
-		this.serverHandler = new ServerHandler();
+		this.serverHandler = new ServerHandler(authentication);
 
 		this.serverBootstrap.setPipelineFactory(new StompPipelineFactory() {
 			@Override
@@ -88,14 +88,6 @@ public class StompServer {
 		}
 
 		LOGGER.debug("Server stopped");
-	}
-
-	public Authentication getAuthentication() {
-		return serverHandler.getAuthentication();
-	}
-
-	public void setAuthentication(Authentication authentication) {
-		serverHandler.setAuthentication(authentication);
 	}
 
 }

@@ -13,6 +13,9 @@ import javax.security.auth.login.LoginException;
  * 
  */
 public interface Authentication {
+	
+	public static final Authentication ALLOW_ALL_INSTANCE = new AllowAllAuthentication();
+	public static final Authentication DENY_ALL_INSTANCE = new DenyAllAuthentication();
 
 	/**
 	 * Try to authenticate a user.

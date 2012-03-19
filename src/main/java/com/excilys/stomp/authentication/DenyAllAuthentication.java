@@ -12,9 +12,7 @@ import javax.security.auth.login.LoginException;
  * @author dvilleneuve
  * 
  */
-public class RefuseAllAuthentication implements Authentication {
-
-	public static final Authentication INSTANCE = new RefuseAllAuthentication();
+public class DenyAllAuthentication implements Authentication {
 
 	public String connect(String username, String password) throws LoginException {
 		throw new LoginException();

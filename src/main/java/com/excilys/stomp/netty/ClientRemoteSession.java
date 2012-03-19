@@ -194,13 +194,13 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 
 		// TODO: Check for dead-lock
 		synchronized (authentication) {
-			if (authentication.canSubscribe(sessionToken, topic)) {
+			if (authentication.canSend(sessionToken, topic)) {
 				synchronized (SubscriptionManager.class) {
 					Set<ClientRemoteSession> subscribers = SubscriptionManager.getInstance().retrieveSubscribers(topic);
 					
 					if (subscribers.size() > 0) {
 						MessageFrame messageFrame = new MessageFrame(topic, message, null);
-						// Add content-type id present on the SEND command
+						// Add content-type if present on the SEND command
 						if (contentType != null) {
 							messageFrame.setContentType(contentType);
 						}
@@ -231,16 +231,6 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 	 */
 	public void handleUnknown(Frame frame) {
 		sendError("Unkown command", "The command '" + frame.getCommand() + "' is unkown and can't be managed");
-	}
-
-	public Authentication getAuthentication() {
-		return authentication;
-	}
-
-	public void setAuthentication(Authentication authentication) {
-		synchronized (this.authentication) {
-			this.authentication = authentication;
-		}
 	}
 
 	@Override
