@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.excilys.stomp.events.StompClientListener;
+import com.excilys.stomp.events.StompMessageStateCallback;
 
 /**
  * @author dvilleneuve
@@ -36,7 +37,12 @@ public class ClientMain implements StompClientListener {
 			client.addListener(ClientMain.this);
 			client.connect();
 
-			client.subscribe("/topic", false);
+			client.subscribe("/topic", new StompMessageStateCallback() {
+				@Override
+				public void onMessageSent() {
+					LOGGER.debug("Subscribe success for " + id);
+				}
+			});
 
 			if (id % 2 == 0) {
 				// try {
@@ -44,7 +50,7 @@ public class ClientMain implements StompClientListener {
 				// } catch (InterruptedException e) {
 				// e.printStackTrace();
 				// }
-				client.send("/topic", "plop-" + id, userHeaders, false);
+				client.send("/topic", "plop-" + id, userHeaders, null);
 			}
 
 			// }

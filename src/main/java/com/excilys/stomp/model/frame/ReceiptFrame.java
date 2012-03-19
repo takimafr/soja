@@ -16,7 +16,7 @@ import com.excilys.stomp.model.Header;
 public class ReceiptFrame extends Frame {
 
 	public ReceiptFrame(String receipId) {
-		super(Frame.COMMAND_RECEIPT, new Header().set(Header.HEADER_RECEIPT_ID, receipId), null);
+		super(Frame.COMMAND_RECEIPT, new Header().set(Header.HEADER_RECEIPT_ID_RESPONSE, receipId), null);
 	}
 
 }

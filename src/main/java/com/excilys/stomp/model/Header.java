@@ -27,8 +27,8 @@ public class Header extends HashMap<String, String> {
 	public static final String HEADER_SERVER = "server";
 
 	public static final String HEADER_ACK = "ack";
-	public static final String HEADER_RECEIPT = "receipt";
-	public static final String HEADER_RECEIPT_ID = "receip-id";
+	public static final String HEADER_RECEIPT_ID_REQUEST = "receipt";
+	public static final String HEADER_RECEIPT_ID_RESPONSE = "receipt-id";
 
 	public static final String HEADER_MESSAGE = "message";
 

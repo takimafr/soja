@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.excilys.stomp.events.StompClientListener;
+import com.excilys.stomp.events.StompMessageStateCallback;
 import com.excilys.stomp.model.Frame;
 import com.excilys.stomp.model.frame.ConnectFrame;
 import com.excilys.stomp.model.frame.DisconnectFrame;
@@ -110,9 +111,16 @@ public class StompClient {
 	 * Disconnect the STOMP client from the server.
 	 */
 	public void disconnect() {
+		disconnect(null);
+	}
+
+	/**
+	 * Disconnect the STOMP client from the server.
+	 */
+	public void disconnect(StompMessageStateCallback callback) {
 		LOGGER.debug("disconnecting...");
 
-		clientHandler.sendFrame(new DisconnectFrame());
+		clientHandler.sendFrame(new DisconnectFrame(), callback);
 
 		// Wait until all messages are flushed before closing the channel.
 		if (channelFuture != null) {
@@ -133,29 +141,39 @@ public class StompClient {
 		LOGGER.debug("disconnected");
 	}
 
-	public boolean subscribe(String topic, boolean waitForReceipt) {
+	public void subscribe(String topic) {
+		subscribe(topic, null);
+	}
+
+	public void subscribe(String topic, StompMessageStateCallback callback) {
 		Frame frame = new SubscribeFrame(topic);
-		clientHandler.sendFrame(frame);
-		return false;
+		clientHandler.sendFrame(frame, callback);
 	}
 
-	public boolean unsubscribe(String topic, boolean waitForReceipt) {
+	public void unsubscribe(String topic) {
+		unsubscribe(topic, null);
+	}
+
+	public void unsubscribe(String topic, StompMessageStateCallback callback) {
 		Frame frame = new UnsubscribeFrame(topic);
-		clientHandler.sendFrame(frame);
-		return false;
+		clientHandler.sendFrame(frame, callback);
 	}
 
-	public boolean send(String topic, String message, boolean waitForReceipt) {
-		return send(topic, message, null, waitForReceipt);
+	public void send(String topic, String message) {
+		send(topic, message, null, null);
 	}
 
-	public boolean send(String topic, String message, Map<String, String> additionalHeaders, boolean waitForReceipt) {
+	public void send(String topic, String message, StompMessageStateCallback callback) {
+		send(topic, message, null, callback);
+	}
+
+	public void send(String topic, String message, Map<String, String> additionalHeaders,
+			StompMessageStateCallback callback) {
 		Frame frame = new SendFrame(topic, message);
 		if (additionalHeaders != null) {
 			frame.getHeader().putAll(additionalHeaders);
 		}
-		clientHandler.sendFrame(frame);
-		return false;
+		clientHandler.sendFrame(frame, callback);
 	}
 
 	public void addListener(StompClientListener stompClientListener) {

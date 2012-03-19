@@ -60,10 +60,16 @@ public class Frame {
 		this.header = header;
 	}
 
+	/**
+	 * Return the value of the requested header. If the header doesn't exists, return null.
+	 * 
+	 * @param key
+	 *            of the header
+	 * @return the requested value or null if doesn't exists.
+	 */
 	public String getHeaderValue(String key) {
 		return header.get(key, null);
 	}
-
 
 	public String getBody() {
 		return body;

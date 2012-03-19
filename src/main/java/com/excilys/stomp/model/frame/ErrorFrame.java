@@ -32,7 +32,7 @@ public class ErrorFrame extends Frame {
 	}
 
 	public ErrorFrame setReceipId(String receipId) {
-		getHeader().set(Header.HEADER_RECEIPT_ID, receipId);
+		getHeader().set(Header.HEADER_RECEIPT_ID_RESPONSE, receipId);
 		return this;
 	}
 

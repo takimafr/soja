@@ -36,7 +36,7 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 	private static final Logger LOGGER = LoggerFactory.getLogger(ClientRemoteSession.class);
 
 	private static final String[] SEND_USER_HEADERS_FILTER = new String[] { Header.HEADER_DESTINATION,
-			Header.HEADER_TRANSACTION, Header.HEADER_CONTENT_TYPE, Header.HEADER_CONTENT_LENGTH, Header.HEADER_RECEIPT };
+			Header.HEADER_TRANSACTION, Header.HEADER_CONTENT_TYPE, Header.HEADER_CONTENT_LENGTH, Header.HEADER_RECEIPT_ID_REQUEST };
 
 	private final Channel channel;
 	private Authentication authentication;
@@ -95,7 +95,7 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 	 */
 	private boolean manageReceipt(Frame frame) {
 		// Check if a receipt is asked
-		String receipt = frame.getHeaderValue(Header.HEADER_RECEIPT);
+		String receipt = frame.getHeaderValue(Header.HEADER_RECEIPT_ID_REQUEST);
 		if (receipt != null) {
 			sendFrame(new ReceiptFrame(receipt));
 			return true;
