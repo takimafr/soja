@@ -6,7 +6,7 @@
  */
 package com.excilys.stomp.model;
 
-import com.excilys.stomp.netty.ClientRemoteSession;
+import org.jboss.netty.channel.Channel;
 
 
 /**
@@ -14,7 +14,7 @@ import com.excilys.stomp.netty.ClientRemoteSession;
  * 
  */
 public class Subscription implements Comparable<Subscription> {
-	private final ClientRemoteSession clientRemoteSession;
+	private final Channel channel;
 	private final Long subscriptionId;
 	private final String topic;
 	private final Ack ackMode;
@@ -24,15 +24,15 @@ public class Subscription implements Comparable<Subscription> {
 	 * @param ackMode
 	 * @param subscriptionId
 	 */
-	public Subscription(ClientRemoteSession clientRemoteSession, Long subscriptionId, String topic, Ack ackMode) {
-		this.clientRemoteSession = clientRemoteSession;
+	public Subscription(Channel channel, Long subscriptionId, String topic, Ack ackMode) {
+		this.channel = channel;
 		this.subscriptionId = subscriptionId;
 		this.topic = topic;
 		this.ackMode = ackMode;
 	}
 
-	public ClientRemoteSession getClientRemoteSession() {
-		return clientRemoteSession;
+	public Channel getChannel() {
+		return channel;
 	}
 
 	public Long getSubscriptionId() {
@@ -52,7 +52,7 @@ public class Subscription implements Comparable<Subscription> {
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + ((ackMode == null) ? 0 : ackMode.hashCode());
-		result = prime * result + ((clientRemoteSession == null) ? 0 : clientRemoteSession.hashCode());
+		result = prime * result + ((channel == null) ? 0 : channel.hashCode());
 		result = prime * result + ((subscriptionId == null) ? 0 : subscriptionId.hashCode());
 		result = prime * result + ((topic == null) ? 0 : topic.hashCode());
 		return result;
@@ -69,10 +69,10 @@ public class Subscription implements Comparable<Subscription> {
 		Subscription other = (Subscription) obj;
 		if (ackMode != other.ackMode)
 			return false;
-		if (clientRemoteSession == null) {
-			if (other.clientRemoteSession != null)
+		if (channel == null) {
+			if (other.channel != null)
 				return false;
-		} else if (!clientRemoteSession.equals(other.clientRemoteSession))
+		} else if (!channel.equals(other.channel))
 			return false;
 		if (subscriptionId == null) {
 			if (other.subscriptionId != null)
@@ -89,8 +89,8 @@ public class Subscription implements Comparable<Subscription> {
 
 	@Override
 	public int compareTo(Subscription o) {
-		String id1 = clientRemoteSession.getSessionToken() + subscriptionId;
-		String id2 = o.getClientRemoteSession().getSessionToken() + o.getSubscriptionId();
+		String id1 = channel.getId().toString() + subscriptionId;
+		String id2 = o.getChannel().getId().toString() + o.getSubscriptionId();
 		return id1.compareTo(id2);
 	}
 }

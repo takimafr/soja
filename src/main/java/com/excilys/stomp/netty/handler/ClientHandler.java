@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.MessageEvent;
 import org.slf4j.Logger;
@@ -52,6 +53,7 @@ public class ClientHandler extends StompHandler {
 			LOGGER.error("Not a frame... {}", e.getMessage());
 			return;
 		}
+		Channel channel = ctx.getChannel();
 		Frame frame = (Frame) e.getMessage();
 
 		// ERROR
@@ -62,15 +64,15 @@ public class ClientHandler extends StompHandler {
 
 			// CONNECTED
 			if (frame.isCommand(Frame.COMMAND_CONNECTED)) {
-				handleConnected(frame);
+				handleConnected(channel, frame);
 			}
 			// MESSAGE
 			else if (frame.isCommand(Frame.COMMAND_MESSAGE)) {
-				handleMessage(frame);
+				handleMessage(channel, frame);
 			}
 			// RECEIPT
 			else if (frame.isCommand(Frame.COMMAND_RECEIPT)) {
-				handleReceipt(frame);
+				handleReceipt(channel, frame);
 			}
 			// UNKNOWN
 			else {
@@ -84,7 +86,7 @@ public class ClientHandler extends StompHandler {
 	 * 
 	 * @param frame
 	 */
-	private void handleConnected(Frame frame) {
+	private void handleConnected(Channel channel, Frame frame) {
 		connected = true;
 
 		// Notify all listeners
@@ -98,7 +100,7 @@ public class ClientHandler extends StompHandler {
 	 * 
 	 * @param frame
 	 */
-	private void handleMessage(Frame frame) {
+	private void handleMessage(Channel channel, Frame frame) {
 		String topic = frame.getHeaderValue(Header.HEADER_DESTINATION);
 		String message = frame.getBody();
 		String messageId = frame.getHeaderValue(Header.HEADER_MESSAGE_ID);
@@ -114,7 +116,7 @@ public class ClientHandler extends StompHandler {
 		// Send an ACK to the server if needed
 		Ack ackMode = subscriptionsAckMode.get(subscriptionId);
 		if (ackMode != null && ackMode != Ack.AUTO) {
-			sendFrame(new AckFrame(messageId, subscriptionId));
+			sendFrame(channel, new AckFrame(messageId, subscriptionId));
 		}
 
 		// Notify all listeners
@@ -128,7 +130,7 @@ public class ClientHandler extends StompHandler {
 	 * 
 	 * @param frame
 	 */
-	private void handleReceipt(Frame frame) {
+	private void handleReceipt(Channel channel, Frame frame) {
 		String receiptId = frame.getHeaderValue(Header.HEADER_RECEIPT_ID_RESPONSE);
 		if (receiptId != null) {
 			synchronized (messageStateCallbacks) {
@@ -147,7 +149,7 @@ public class ClientHandler extends StompHandler {
 	 * @param frame
 	 * @param callback
 	 */
-	public void sendFrame(Frame frame, StompMessageStateCallback callback) {
+	public void sendFrame(Channel channel, Frame frame, StompMessageStateCallback callback) {
 		if (callback != null) {
 			synchronized (messageStateCallbacks) {
 				String receiptId = frame.getCommand() + "-" + messageSent++;
@@ -155,7 +157,7 @@ public class ClientHandler extends StompHandler {
 				frame.getHeader().put(Header.HEADER_RECEIPT_ID_REQUEST, receiptId);
 			}
 		}
-		sendFrame(frame);
+		sendFrame(channel, frame);
 	}
 
 	/**
@@ -166,10 +168,10 @@ public class ClientHandler extends StompHandler {
 	 * @param ackMode
 	 * @return the subscription id
 	 */
-	public Long subscribe(String topic, StompMessageStateCallback callback, Ack ackMode) {
+	public Long subscribe(Channel channel, String topic, StompMessageStateCallback callback, Ack ackMode) {
 		SubscribeFrame frame = new SubscribeFrame(topic);
 		frame.setAck(ackMode);
-		sendFrame(frame, callback);
+		sendFrame(channel, frame, callback);
 
 		Long subscriptionId = frame.getSubscriptionId();
 		subscriptionsAckMode.put(subscriptionId, ackMode);
@@ -182,11 +184,11 @@ public class ClientHandler extends StompHandler {
 	 * @param subscriptionId
 	 * @param callback
 	 */
-	public void unsubscribe(Long subscriptionId, StompMessageStateCallback callback) {
+	public void unsubscribe(Channel channel, Long subscriptionId, StompMessageStateCallback callback) {
 		subscriptionsAckMode.remove(subscriptionId);
 
 		Frame frame = new UnsubscribeFrame(subscriptionId);
-		sendFrame(frame, callback);
+		sendFrame(channel, frame, callback);
 	}
 
 	/**
@@ -197,13 +199,13 @@ public class ClientHandler extends StompHandler {
 	 * @param additionalHeaders
 	 * @param callback
 	 */
-	public void send(String topic, String message, Map<String, String> additionalHeaders,
+	public void send(Channel channel, String topic, String message, Map<String, String> additionalHeaders,
 			StompMessageStateCallback callback) {
 		Frame frame = new SendFrame(topic, message);
 		if (additionalHeaders != null) {
 			frame.getHeader().putAll(additionalHeaders);
 		}
-		sendFrame(frame, callback);
+		sendFrame(channel, frame, callback);
 	}
 
 	public boolean isConnected() {

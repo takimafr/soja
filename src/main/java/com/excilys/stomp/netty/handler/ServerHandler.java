@@ -14,6 +14,7 @@ import java.util.TreeSet;
 
 import javax.security.auth.login.LoginException;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelStateEvent;
@@ -21,16 +22,20 @@ import org.jboss.netty.channel.MessageEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.excilys.stomp.StompServer;
 import com.excilys.stomp.authentication.Authentication;
+import com.excilys.stomp.exception.AlreadyConnectedException;
 import com.excilys.stomp.exception.UnsupportedVersionException;
 import com.excilys.stomp.model.Ack;
 import com.excilys.stomp.model.AckWaiting;
 import com.excilys.stomp.model.Frame;
 import com.excilys.stomp.model.Header;
 import com.excilys.stomp.model.Subscription;
+import com.excilys.stomp.model.frame.ConnectedFrame;
+import com.excilys.stomp.model.frame.ErrorFrame;
 import com.excilys.stomp.model.frame.MessageFrame;
-import com.excilys.stomp.netty.ClientRemoteSession;
 import com.excilys.stomp.netty.SubscriptionManager;
+import com.excilys.stomp.utils.FrameFactory;
 
 /**
  * @author dvilleneuve
@@ -45,9 +50,8 @@ public class ServerHandler extends StompHandler {
 
 	private final Authentication authentication;
 	private final SubscriptionManager subscriptionManager;
-
-	private Map<Integer, ClientRemoteSession> clientSessions = new HashMap<Integer, ClientRemoteSession>();
-	private Map<String, AckWaiting> waitingAcks = new HashMap<String, AckWaiting>();
+	private final Map<Integer, String> clientSessionTokens = new HashMap<Integer, String>();
+	private final Map<String, AckWaiting> waitingAcks = new HashMap<String, AckWaiting>();
 
 	public ServerHandler(Authentication authentication) {
 		this.authentication = authentication;
@@ -60,18 +64,12 @@ public class ServerHandler extends StompHandler {
 	public void channelConnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
 		super.channelConnected(ctx, e);
 		LOGGER.debug("Client {} connected. Starting client session", ctx.getChannel().getRemoteAddress());
-
-		// When a client connect to the server, we allocate to him a ClientSession instance (based on the channel id)
-		Integer channelId = e.getChannel().getId();
-		if (!clientSessions.containsKey(channelId)) {
-			clientSessions.put(channelId, new ClientRemoteSession(e.getChannel(), authentication));
-		}
 	}
 
 	@Override
 	public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
 		super.channelDisconnected(ctx, e);
-		clientSessions.remove(ctx.getChannel().getId());
+		clientSessionTokens.remove(ctx.getChannel().getId());
 
 		LOGGER.debug("Client session {} disconnected", ctx.getChannel().getRemoteAddress());
 	}
@@ -82,50 +80,95 @@ public class ServerHandler extends StompHandler {
 			LOGGER.error("Not a frame... {}", event.getMessage());
 			return;
 		}
+		Channel channel = ctx.getChannel();
 		Frame frame = (Frame) event.getMessage();
 		LOGGER.trace("Received frame : {}", frame);
 
-		// Retrieve the session for this client
-		ClientRemoteSession clientRemoteSession = clientSessions.get(event.getChannel().getId());
-		if (clientRemoteSession != null) {
-			// CONNECT
-			if (frame.isCommand(Frame.COMMAND_CONNECT)) {
-				try {
-					clientRemoteSession.handleConnect(frame);
-				} catch (LoginException e) {
-					LOGGER.info("Login failed", e);
-					disconnectClient(event.getChannel());
-				} catch (UnsupportedVersionException e) {
-					LOGGER.info("The server doesn't support the same STOMP version as the client");
-					disconnectClient(event.getChannel());
-				}
-			}
-			// DISCONNECT
-			else if (frame.isCommand(Frame.COMMAND_DISCONNECT)) {
-				clientRemoteSession.handleDisconnect(frame);
+		// CONNECT
+		if (frame.isCommand(Frame.COMMAND_CONNECT)) {
+			try {
+				handleConnect(channel, frame);
+			} catch (RuntimeException e) {
+				LOGGER.info("Login failed", e);
 				disconnectClient(event.getChannel());
 			}
-			// SUBSCRIBE
-			else if (frame.isCommand(Frame.COMMAND_SUBSCRIBE)) {
-				clientRemoteSession.handleSubscribe(frame);
-			}
-			// UNSUBSCRIBE
-			else if (frame.isCommand(Frame.COMMAND_UNSUBSCRIBE)) {
-				clientRemoteSession.handleUnsubscribe(frame);
-			}
-			// SEND
-			else if (frame.isCommand(Frame.COMMAND_SEND)) {
-				handleSend(frame, clientRemoteSession);
-			}
-			// ACK
-			else if (frame.isCommand(Frame.COMMAND_ACK)) {
-				handleAck(frame, clientRemoteSession);
-			}
-			// UNKNOWN
-			else {
-				clientRemoteSession.handleUnknown(frame);
-			}
 		}
+		// DISCONNECT
+		else if (frame.isCommand(Frame.COMMAND_DISCONNECT)) {
+			handleDisconnect(channel, frame);
+			disconnectClient(event.getChannel());
+		}
+		// SUBSCRIBE
+		else if (frame.isCommand(Frame.COMMAND_SUBSCRIBE)) {
+			handleSubscribe(channel, frame);
+		}
+		// UNSUBSCRIBE
+		else if (frame.isCommand(Frame.COMMAND_UNSUBSCRIBE)) {
+			handleUnsubscribe(channel, frame);
+		}
+		// SEND
+		else if (frame.isCommand(Frame.COMMAND_SEND)) {
+			handleSend(channel, frame);
+		}
+		// ACK
+		else if (frame.isCommand(Frame.COMMAND_ACK)) {
+			handleAck(channel, frame);
+		}
+		// UNKNOWN
+		else {
+			handleUnknown(channel, frame);
+		}
+	}
+
+	/**
+	 * Handle CONNECT command
+	 * 
+	 * @param frame
+	 */
+	public void handleConnect(Channel channel, Frame frame) throws LoginException, UnsupportedVersionException,
+			AlreadyConnectedException {
+		// Retrieve the session for this client
+		String clientSessionToken = clientSessionTokens.get(channel.getId());
+		if (clientSessionToken != null) {
+			throw new AlreadyConnectedException("User try to connect but it seems to be already connected");
+		}
+
+		String[] acceptedVersions = frame.getHeader().get(Header.HEADER_ACCEPT_VERSION, "").split(",");
+
+		// Check the compatibility of the client and server STOMP version
+		if (ArrayUtils.contains(acceptedVersions, StompServer.STOMP_VERSION)) {
+			String login = frame.getHeaderValue(Header.HEADER_LOGIN);
+			String password = frame.getHeaderValue(Header.HEADER_PASSCODE);
+
+			try {
+				// Check the credentials of the user
+				String sessionToken = authentication.connect(login, password);
+				clientSessionTokens.put(channel.getId(), sessionToken);
+				sendFrame(channel, new ConnectedFrame(StompServer.STOMP_VERSION));
+			} catch (LoginException e) {
+				sendError(channel, "Bad credentials", "Username or passcode incorrect");
+				throw new LoginException("Login failed for user '" + login + "'");
+			}
+		} else {
+			sendError(channel, "Supported version doesn't match", "Supported protocol version is "
+					+ StompServer.STOMP_VERSION);
+			throw new UnsupportedVersionException(
+					"The server doesn't support the same STOMP version as the client : server="
+							+ StompServer.STOMP_VERSION + ", client=" + acceptedVersions);
+		}
+	}
+
+	/**
+	 * Handle DISCONNECT command
+	 * 
+	 * @param frame
+	 */
+	public void handleDisconnect(Channel channel, Frame frame) {
+		String clientSessionToken = clientSessionTokens.get(channel.getId());
+		// Remove all subscription for this client's session
+		subscriptionManager.removeSubscriptions(clientSessionToken);
+
+		sendReceiptIfRequested(channel, frame);
 	}
 
 	/**
@@ -133,13 +176,13 @@ public class ServerHandler extends StompHandler {
 	 * 
 	 * @param sendFrame
 	 */
-	public void handleSend(Frame sendFrame, ClientRemoteSession clientRemoteSession) {
+	public void handleSend(Channel channel, Frame sendFrame) {
 		String topic = sendFrame.getHeaderValue(Header.HEADER_DESTINATION);
 
 		synchronized (authentication) {
-			if (!authentication.canSend(clientRemoteSession.getSessionToken(), topic)) {
-				clientRemoteSession.sendError("Can't send message", "You're not allowed to send a message to the topic"
-						+ topic);
+			String clientSessionToken = clientSessionTokens.get(channel.getId());
+			if (!authentication.canSend(clientSessionToken, topic)) {
+				sendError(channel, "Can't send message", "You're not allowed to send a message to the topic" + topic);
 				return;
 			}
 		}
@@ -147,7 +190,7 @@ public class ServerHandler extends StompHandler {
 		// Retrieve subscribers for the given topic
 		Set<Subscription> subscriptions = null;
 		synchronized (SubscriptionManager.class) {
-			subscriptions = subscriptionManager.retrieveSubscriptions(topic);
+			subscriptions = subscriptionManager.retrieveSubscriptionsByTopic(topic);
 		}
 
 		if (subscriptions != null && subscriptions.size() > 0) {
@@ -177,20 +220,56 @@ public class ServerHandler extends StompHandler {
 				}
 
 				messageFrame.setHeaderValue(Header.HEADER_SUBSCRIPTION, subscription.getSubscriptionId().toString());
-				subscription.getClientRemoteSession().sendFrame(messageFrame);
+				sendFrame(subscription.getChannel(), messageFrame);
 			}
 
 			if (acks.size() > 0) {
 				synchronized (waitingAcks) {
 					String messageId = messageFrame.getMessageId();
-					waitingAcks.put(messageId, new AckWaiting(acks, sendFrame, clientRemoteSession));
+					waitingAcks.put(messageId, new AckWaiting(channel, acks, sendFrame));
 				}
 			} else {
-				clientRemoteSession.sendReceiptIfRequested(sendFrame);
+				sendReceiptIfRequested(channel, sendFrame);
 			}
 		} else {
-			clientRemoteSession.sendReceiptIfRequested(sendFrame);
+			sendReceiptIfRequested(channel, sendFrame);
 		}
+	}
+
+	/**
+	 * Handle SUBSCRIBE command
+	 * 
+	 * @param frame
+	 */
+	public void handleSubscribe(Channel channel, Frame frame) {
+		String topic = frame.getHeaderValue(Header.HEADER_DESTINATION);
+		Long subscriptionId = Long.valueOf(frame.getHeaderValue(Header.HEADER_SUBSCRIPTION_ID));
+		Ack ackMode = Ack.parseAck(frame.getHeaderValue(Header.HEADER_ACK));
+		String clientSessionToken = clientSessionTokens.get(channel.getId());
+
+		if (authentication.canSubscribe(clientSessionToken, topic)) {
+			synchronized (SubscriptionManager.class) {
+				subscriptionManager.addSubscription(channel, clientSessionToken, subscriptionId, topic, ackMode);
+			}
+			sendReceiptIfRequested(channel, frame);
+		} else {
+			sendError(channel, "Can't subscribe", "You're not allowed to subscribe to the topic" + topic);
+		}
+	}
+
+	/**
+	 * Handle UNSUBSCRIBE command
+	 * 
+	 * @param frame
+	 */
+	public void handleUnsubscribe(Channel channel, Frame frame) {
+		Long subscriptionId = Long.valueOf(frame.getHeaderValue(Header.HEADER_SUBSCRIPTION_ID));
+
+		synchronized (SubscriptionManager.class) {
+			String clientSessionToken = clientSessionTokens.get(channel.getId());
+			subscriptionManager.removeSubscription(clientSessionToken, subscriptionId);
+		}
+		sendReceiptIfRequested(channel, frame);
 	}
 
 	/**
@@ -198,7 +277,7 @@ public class ServerHandler extends StompHandler {
 	 * 
 	 * @param frame
 	 */
-	public void handleAck(Frame frame, ClientRemoteSession clientRemoteSession) {
+	public void handleAck(Channel channel, Frame frame) {
 		Long subscriptionId = Long.valueOf(frame.getHeaderValue(Header.HEADER_SUBSCRIPTION));
 		String messageId = frame.getHeaderValue(Header.HEADER_MESSAGE_ID);
 
@@ -208,15 +287,50 @@ public class ServerHandler extends StompHandler {
 			if (waitingAck != null) {
 				waitingAck.removeSubscriptionId(subscriptionId);
 
-				LOGGER.debug("ACK processed for message '" + messageId + "' and subscription '" + subscriptionId
-						+ "'. Ack left : " + waitingAck.getSubscriptionIds().size());
-
 				if (waitingAck.getSubscriptionIds().size() == 0) {
-					waitingAck.getSendClientSession().sendReceiptIfRequested(waitingAck.getSendFrame());
+					sendReceiptIfRequested(waitingAck.getChannel(), waitingAck.getSendFrame());
 					waitingAcks.remove(messageId);
 				}
 			}
 		}
+	}
+
+	/**
+	 * Handle UNKNOWN command
+	 * 
+	 * @param frame
+	 */
+	public void handleUnknown(Channel channel, Frame frame) {
+		sendError(channel, "Unkown command", "The command '" + frame.getCommand() + "' is unkown and can't be managed");
+	}
+
+	/**
+	 * Send a STOMP error frame. this kind of frame is only available on server-side.
+	 * 
+	 * @param shortMessage
+	 * @param detailedMessage
+	 */
+	public void sendError(Channel channel, String shortMessage, String detailedMessage) {
+		ErrorFrame errorFrame = new ErrorFrame(shortMessage);
+		if (detailedMessage != null) {
+			errorFrame.setDescription(detailedMessage);
+		}
+		sendFrame(channel, errorFrame);
+	}
+
+	/**
+	 * Send a receipt if it was requested
+	 * 
+	 * @param frame
+	 * @return true if a receipt was requests, false else
+	 */
+	public boolean sendReceiptIfRequested(Channel channel, Frame frame) {
+		Frame receiptFrame = FrameFactory.createReceipt(frame);
+		if (receiptFrame != null) {
+			sendFrame(channel, receiptFrame);
+			return true;
+		}
+		return false;
 	}
 
 	private void disconnectClient(Channel channel) {

@@ -8,7 +8,7 @@ package com.excilys.stomp.model;
 
 import java.util.Set;
 
-import com.excilys.stomp.netty.ClientRemoteSession;
+import org.jboss.netty.channel.Channel;
 
 /**
  * @author dvilleneuve
@@ -16,14 +16,14 @@ import com.excilys.stomp.netty.ClientRemoteSession;
  */
 public class AckWaiting {
 
+	private final Channel channel;
 	private final Set<Long> subscriptionIds;
 	private final Frame sendFrame;
-	private final ClientRemoteSession sendClientSession;
 
-	public AckWaiting(Set<Long> subscriptionIds, Frame sendFrame, ClientRemoteSession sendClientSession) {
+	public AckWaiting(Channel channel, Set<Long> subscriptionIds, Frame sendFrame) {
+		this.channel = channel;
 		this.subscriptionIds = subscriptionIds;
 		this.sendFrame = sendFrame;
-		this.sendClientSession = sendClientSession;
 	}
 
 	public Set<Long> getSubscriptionIds() {
@@ -34,8 +34,8 @@ public class AckWaiting {
 		return sendFrame;
 	}
 
-	public ClientRemoteSession getSendClientSession() {
-		return sendClientSession;
+	public Channel getChannel() {
+		return channel;
 	}
 
 	public void removeSubscriptionId(Long subscriptionId) {

@@ -8,16 +8,19 @@ package com.excilys.stomp.exception;
 
 /**
  * @author dvilleneuve
- *
+ * 
  */
-public class UnsupportedVersionException extends RuntimeException {
-
-	private static final long serialVersionUID = 1754782663491146018L;
+public class AlreadyConnectedException extends RuntimeException {
 
 	/**
 	 * 
 	 */
-	public UnsupportedVersionException() {
+	private static final long serialVersionUID = -5368503276483615740L;
+
+	/**
+	 * 
+	 */
+	public AlreadyConnectedException() {
 		super();
 
 	}
@@ -26,7 +29,7 @@ public class UnsupportedVersionException extends RuntimeException {
 	 * @param message
 	 * @param cause
 	 */
-	public UnsupportedVersionException(String message, Throwable cause) {
+	public AlreadyConnectedException(String message, Throwable cause) {
 		super(message, cause);
 
 	}
@@ -34,7 +37,7 @@ public class UnsupportedVersionException extends RuntimeException {
 	/**
 	 * @param message
 	 */
-	public UnsupportedVersionException(String message) {
+	public AlreadyConnectedException(String message) {
 		super(message);
 
 	}
@@ -42,9 +45,9 @@ public class UnsupportedVersionException extends RuntimeException {
 	/**
 	 * @param cause
 	 */
-	public UnsupportedVersionException(Throwable cause) {
+	public AlreadyConnectedException(Throwable cause) {
 		super(cause);
 
 	}
-
+	
 }

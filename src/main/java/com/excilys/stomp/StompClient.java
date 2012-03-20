@@ -98,7 +98,7 @@ public class StompClient {
 			LOGGER.debug("Connected to {}:{}. Login with username {}...", new Object[] { hostname, port, username });
 
 			// When connected, send a CONNECT command
-			clientHandler.sendFrame(new ConnectFrame(SUPPORTED_STOMP_VERSION, hostname, username, password));
+			clientHandler.sendFrame(channel, new ConnectFrame(SUPPORTED_STOMP_VERSION, hostname, username, password));
 			return true;
 		}
 		return false;
@@ -117,7 +117,7 @@ public class StompClient {
 	public void disconnect(StompMessageStateCallback callback) {
 		LOGGER.debug("disconnecting...");
 
-		clientHandler.sendFrame(new DisconnectFrame(), callback);
+		clientHandler.sendFrame(channel, new DisconnectFrame(), callback);
 
 		// Wait until all messages are flushed before closing the channel.
 		if (channelFuture != null) {
@@ -143,7 +143,7 @@ public class StompClient {
 	}
 
 	public Long subscribe(String topic, StompMessageStateCallback callback, Ack ackMode) {
-		return clientHandler.subscribe(topic, callback, ackMode);
+		return clientHandler.subscribe(channel, topic, callback, ackMode);
 	}
 
 	public void unsubscribe(Long subscriptionId) {
@@ -151,7 +151,7 @@ public class StompClient {
 	}
 
 	public void unsubscribe(Long subscriptionId, StompMessageStateCallback callback) {
-		clientHandler.unsubscribe(subscriptionId, callback);
+		clientHandler.unsubscribe(channel, subscriptionId, callback);
 	}
 
 	public void send(String topic, String message) {
@@ -164,7 +164,7 @@ public class StompClient {
 
 	public void send(String topic, String message, Map<String, String> additionalHeaders,
 			StompMessageStateCallback callback) {
-		clientHandler.send(topic, message, additionalHeaders, callback);
+		clientHandler.send(channel, topic, message, additionalHeaders, callback);
 	}
 
 	public void addListener(StompClientListener stompClientListener) {
