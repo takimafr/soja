@@ -7,6 +7,7 @@
 package com.excilys.stomp.utils;
 
 import static com.excilys.stomp.model.Frame.COMMAND_ABORT;
+import static com.excilys.stomp.model.Frame.COMMAND_ACK;
 import static com.excilys.stomp.model.Frame.COMMAND_BEGIN;
 import static com.excilys.stomp.model.Frame.COMMAND_COMMIT;
 import static com.excilys.stomp.model.Frame.COMMAND_CONNECT;
@@ -14,6 +15,7 @@ import static com.excilys.stomp.model.Frame.COMMAND_CONNECTED;
 import static com.excilys.stomp.model.Frame.COMMAND_DISCONNECT;
 import static com.excilys.stomp.model.Frame.COMMAND_ERROR;
 import static com.excilys.stomp.model.Frame.COMMAND_MESSAGE;
+import static com.excilys.stomp.model.Frame.COMMAND_NACK;
 import static com.excilys.stomp.model.Frame.COMMAND_RECEIPT;
 import static com.excilys.stomp.model.Frame.COMMAND_SEND;
 import static com.excilys.stomp.model.Frame.COMMAND_SUBSCRIBE;
@@ -29,7 +31,6 @@ import com.excilys.stomp.exception.ParseException;
 import com.excilys.stomp.model.Frame;
 import com.excilys.stomp.model.Header;
 
-
 /**
  * @author dvilleneuve
  * 
@@ -38,7 +39,7 @@ public class FrameParser {
 
 	private static final String[] VALID_COMMANDS = { COMMAND_CONNECT, COMMAND_DISCONNECT, COMMAND_SEND,
 			COMMAND_MESSAGE, COMMAND_SUBSCRIBE, COMMAND_UNSUBSCRIBE, COMMAND_BEGIN, COMMAND_COMMIT, COMMAND_ABORT,
-			COMMAND_RECEIPT, COMMAND_CONNECTED, COMMAND_ERROR };
+			COMMAND_RECEIPT, COMMAND_CONNECTED, COMMAND_ERROR, COMMAND_ACK, COMMAND_NACK };
 	private static final String[] COMMANDS_WITH_BODY = { COMMAND_SEND, COMMAND_MESSAGE, COMMAND_ERROR };
 
 	public static Frame parseStream(String frameString) throws IOException, ParseException {

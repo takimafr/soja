@@ -6,10 +6,14 @@
  */
 package com.excilys.stomp.netty;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+
+import com.excilys.stomp.model.Ack;
+import com.excilys.stomp.model.Subscription;
 
 /**
  * @author dvilleneuve
@@ -18,7 +22,8 @@ import java.util.TreeSet;
 public class SubscriptionManager {
 
 	private static final SubscriptionManager instance = new SubscriptionManager();
-	private final Map<String, Set<ClientRemoteSession>> subscriptions = new HashMap<String, Set<ClientRemoteSession>>();
+	private final Map<String, Set<Subscription>> topicsSubscriptions = new HashMap<String, Set<Subscription>>();
+	private final Map<ClientRemoteSession, Map<Long, Subscription>> clientsSubscriptions = new HashMap<ClientRemoteSession, Map<Long, Subscription>>();
 
 	public static SubscriptionManager getInstance() {
 		return instance;
@@ -28,47 +33,83 @@ public class SubscriptionManager {
 	}
 
 	/**
-	 * Retrieve all subscribers for a topic. If none has subscribed to this topic, return null.
+	 * Retrieve all subscriptions for a topic. If none has subscribed to this topic, return null.
 	 * 
 	 * @param topic
 	 * @return
 	 */
-	public Set<ClientRemoteSession> retrieveSubscribers(String topic) {
-		return subscriptions.get(topic);
+	public Set<Subscription> retrieveSubscriptions(String topic) {
+		return topicsSubscriptions.get(topic);
+	}
+
+	/**
+	 * Retrieve all subscriptions of a client. If none, return null.
+	 * 
+	 * @param clientRemoteSession
+	 * @return
+	 */
+	public Map<Long, Subscription> retrieveSubscriptions(ClientRemoteSession clientRemoteSession) {
+		return clientsSubscriptions.get(clientRemoteSession);
 	}
 
 	/**
 	 * Add a subscriber for the given topic. If the client has already subscribed to this topic, leave the subscribers
 	 * list unchanged and return false. Else, add the subscriber and return true
 	 * 
+	 * @param clientRemoteSession
+	 * @param subscriptionId
 	 * @param topic
-	 * @param clientSession
+	 * @param ackMode
 	 * @return true if the subscriber has beed added, false else (or if he's already added)
 	 */
-	public boolean addSubscriber(String topic, ClientRemoteSession clientSession) {
-		Set<ClientRemoteSession> retrieveSubscribers = retrieveSubscribers(topic);
-		if (retrieveSubscribers == null) {
-			retrieveSubscribers = new TreeSet<ClientRemoteSession>();
-			subscriptions.put(topic, retrieveSubscribers);
+	public Subscription addSubscription(ClientRemoteSession clientRemoteSession, Long subscriptionId, String topic,
+			Ack ackMode) {
+		Subscription subscription = new Subscription(clientRemoteSession, subscriptionId, topic, ackMode);
+
+		// Clients subscriptions
+		Map<Long, Subscription> clientSubscriptions = retrieveSubscriptions(clientRemoteSession);
+		if (clientSubscriptions == null) {
+			clientSubscriptions = new HashMap<Long, Subscription>();
+			clientsSubscriptions.put(clientRemoteSession, clientSubscriptions);
 		}
-		return retrieveSubscribers.add(clientSession);
+		clientSubscriptions.put(subscriptionId, subscription);
+
+		// Topics subscriptions
+		Set<Subscription> topicSubscriptions = retrieveSubscriptions(topic);
+		if (topicSubscriptions == null) {
+			topicSubscriptions = new TreeSet<Subscription>();
+			topicsSubscriptions.put(topic, topicSubscriptions);
+		}
+		topicSubscriptions.add(subscription);
+
+		return subscription;
 	}
 
 	/**
 	 * Remove a subscriber for the given topic.
 	 * 
-	 * @param topic
-	 * @param clientSession
+	 * @param clientRemoteSession
+	 * @param subscriptionId
 	 * @return true if the client has subscribed to this topic, false else
 	 */
-	public boolean removeSubscriber(String topic, ClientRemoteSession clientSession) {
-		Set<ClientRemoteSession> retrieveSubscribers = retrieveSubscribers(topic);
-		if (retrieveSubscribers != null) {
-			if (retrieveSubscribers.remove(clientSession)) {
-				if (retrieveSubscribers.size() == 0) {
-					subscriptions.remove(topic);
-					return true;
+	public boolean removeSubscription(ClientRemoteSession clientRemoteSession, Long subscriptionId) {
+		// Clients subscriptions
+		Map<Long, Subscription> clientSubscriptions = retrieveSubscriptions(clientRemoteSession);
+		if (clientSubscriptions != null) {
+			Subscription removedSubscription = clientSubscriptions.remove(subscriptionId);
+			if (removedSubscription != null) {
+				// If this client has no more subscriptions, remove his subscription Map to free memory
+				if (clientSubscriptions.size() == 0) {
+					clientsSubscriptions.remove(clientRemoteSession);
 				}
+
+				// Topics subscriptions
+				Set<Subscription> topicSubscriptions = retrieveSubscriptions(removedSubscription.getTopic());
+				if (topicSubscriptions != null) {
+					topicSubscriptions.remove(removedSubscription);
+				}
+
+				return true;
 			}
 		}
 		return false;
@@ -79,7 +120,17 @@ public class SubscriptionManager {
 	 * 
 	 * @param topic
 	 */
-	public void removeSubscribers(String topic) {
-		subscriptions.remove(topic);
+	public void removeSubscriptions(ClientRemoteSession clientRemoteSession) {
+		Map<Long, Subscription> removedClientSubscriptions = clientsSubscriptions.remove(clientRemoteSession);
+
+		// Topics subscriptions
+		Collection<Subscription> removedSubscriptions = removedClientSubscriptions.values();
+		for (Subscription removedSubscription : removedSubscriptions) {
+			Set<Subscription> topicSubscriptions = retrieveSubscriptions(removedSubscription.getTopic());
+			if (topicSubscriptions != null) {
+				topicSubscriptions.remove(removedSubscription);
+			}
+		}
 	}
+
 }

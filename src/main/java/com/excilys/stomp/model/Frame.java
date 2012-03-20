@@ -20,6 +20,8 @@ public class Frame {
 	public static final String COMMAND_BEGIN = "BEGIN";
 	public static final String COMMAND_COMMIT = "COMMIT";
 	public static final String COMMAND_ABORT = "ABORT";
+	public static final String COMMAND_ACK = "ACK";
+	public static final String COMMAND_NACK = "NACK";
 
 	public static final String COMMAND_RECEIPT = "RECEIPT";
 	public static final String COMMAND_CONNECTED = "CONNECTED";
@@ -69,6 +71,10 @@ public class Frame {
 	 */
 	public String getHeaderValue(String key) {
 		return header.get(key, null);
+	}
+
+	public void setHeaderValue(String key, String value) {
+		header.set(key, value);
 	}
 
 	public String getBody() {

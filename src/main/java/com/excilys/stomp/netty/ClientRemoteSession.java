@@ -6,10 +6,6 @@
  */
 package com.excilys.stomp.netty;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-
 import javax.security.auth.login.LoginException;
 
 import org.apache.commons.lang.ArrayUtils;
@@ -20,12 +16,12 @@ import org.slf4j.LoggerFactory;
 import com.excilys.stomp.StompServer;
 import com.excilys.stomp.authentication.Authentication;
 import com.excilys.stomp.exception.UnsupportedVersionException;
+import com.excilys.stomp.model.Ack;
 import com.excilys.stomp.model.Frame;
 import com.excilys.stomp.model.Header;
 import com.excilys.stomp.model.frame.ConnectedFrame;
 import com.excilys.stomp.model.frame.ErrorFrame;
-import com.excilys.stomp.model.frame.MessageFrame;
-import com.excilys.stomp.model.frame.ReceiptFrame;
+import com.excilys.stomp.utils.FrameFactory;
 
 /**
  * @author dvilleneuve
@@ -35,21 +31,15 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(ClientRemoteSession.class);
 
-	private static final String[] SEND_USER_HEADERS_FILTER = new String[] { Header.HEADER_DESTINATION,
-			Header.HEADER_TRANSACTION, Header.HEADER_CONTENT_TYPE, Header.HEADER_CONTENT_LENGTH, Header.HEADER_RECEIPT_ID_REQUEST };
-
 	private final Channel channel;
-	private Authentication authentication;
+	private final Authentication authentication;
+	private final SubscriptionManager subscriptionManager;
 	private String sessionToken;
-	private Map<String, String> subscriptionIds;
-
-	// subscriptions (topic + ack)
-	// token
 
 	public ClientRemoteSession(Channel channel, Authentication authentication) {
 		this.channel = channel;
 		this.authentication = authentication;
-		this.subscriptionIds = new HashMap<String, String>();
+		this.subscriptionManager = SubscriptionManager.getInstance();
 	}
 
 	/**
@@ -93,11 +83,10 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 	 * @param frame
 	 * @return true if a receipt was requests, false else
 	 */
-	private boolean manageReceipt(Frame frame) {
-		// Check if a receipt is asked
-		String receipt = frame.getHeaderValue(Header.HEADER_RECEIPT_ID_REQUEST);
-		if (receipt != null) {
-			sendFrame(new ReceiptFrame(receipt));
+	public boolean sendReceiptIfRequested(Frame frame) {
+		Frame receiptFrame = FrameFactory.createReceipt(frame);
+		if (receiptFrame != null) {
+			sendFrame(receiptFrame);
 			return true;
 		}
 		return false;
@@ -118,9 +107,7 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 
 			try {
 				// Check the credentials of the user
-				synchronized (authentication) {
-					sessionToken = authentication.connect(login, password);
-				}
+				sessionToken = authentication.connect(login, password);
 				sendFrame(new ConnectedFrame(StompServer.STOMP_VERSION));
 			} catch (LoginException e) {
 				sendError("Bad credentials", "Username or passcode incorrect");
@@ -139,8 +126,10 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 	 * @param frame
 	 */
 	public void handleDisconnect(Frame frame) {
-		// Nothing to do here
-		manageReceipt(frame);
+		// Remove all subscription for this client's session
+		subscriptionManager.removeSubscriptions(this);
+
+		sendReceiptIfRequested(frame);
 	}
 
 	/**
@@ -150,19 +139,16 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 	 */
 	public void handleSubscribe(Frame frame) {
 		String topic = frame.getHeaderValue(Header.HEADER_DESTINATION);
-		String subscriptionId = frame.getHeaderValue(Header.HEADER_SUBSCRIPTION_ID);
+		Long subscriptionId = Long.valueOf(frame.getHeaderValue(Header.HEADER_SUBSCRIPTION_ID));
+		Ack ackMode = Ack.parseAck(frame.getHeaderValue(Header.HEADER_ACK));
 
-		// TODO: Check for dead-lock
-		synchronized (authentication) {
-			if (authentication.canSubscribe(sessionToken, topic)) {
-				synchronized (SubscriptionManager.class) {
-					subscriptionIds.put(subscriptionId, topic);
-					SubscriptionManager.getInstance().addSubscriber(topic, this);
-				}
-				manageReceipt(frame);
-			} else {
-				sendError("Can't subscribe", "You're not allowed to subscribe to the topic" + topic);
+		if (authentication.canSubscribe(sessionToken, topic)) {
+			synchronized (SubscriptionManager.class) {
+				subscriptionManager.addSubscription(this, subscriptionId, topic, ackMode);
 			}
+			sendReceiptIfRequested(frame);
+		} else {
+			sendError("Can't subscribe", "You're not allowed to subscribe to the topic" + topic);
 		}
 	}
 
@@ -172,56 +158,12 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 	 * @param frame
 	 */
 	public void handleUnsubscribe(Frame frame) {
-		String subscriptionId = frame.getHeaderValue(Header.HEADER_SUBSCRIPTION_ID);
-		String topic = subscriptionIds.get(subscriptionId);
+		Long subscriptionId = Long.valueOf(frame.getHeaderValue(Header.HEADER_SUBSCRIPTION_ID));
 
 		synchronized (SubscriptionManager.class) {
-			SubscriptionManager.getInstance().removeSubscriber(topic, this);
-			subscriptionIds.remove(subscriptionId);
+			subscriptionManager.removeSubscription(this, subscriptionId);
 		}
-		manageReceipt(frame);
-	}
-
-	/**
-	 * Handle SEND command
-	 * 
-	 * @param frame
-	 */
-	public void handleSend(Frame frame) {
-		String topic = frame.getHeaderValue(Header.HEADER_DESTINATION);
-		String contentType = frame.getHeaderValue(Header.HEADER_CONTENT_TYPE);
-		String message = frame.getBody();
-
-		// TODO: Check for dead-lock
-		synchronized (authentication) {
-			if (authentication.canSend(sessionToken, topic)) {
-				synchronized (SubscriptionManager.class) {
-					Set<ClientRemoteSession> subscribers = SubscriptionManager.getInstance().retrieveSubscribers(topic);
-					
-					if (subscribers.size() > 0) {
-						MessageFrame messageFrame = new MessageFrame(topic, message, null);
-						// Add content-type if present on the SEND command
-						if (contentType != null) {
-							messageFrame.setContentType(contentType);
-						}
-
-						// Add user keys
-						Set<String> userKeys = frame.getHeader().allKeys(SEND_USER_HEADERS_FILTER);
-						for (String userKey : userKeys) {
-							messageFrame.getHeader().put(userKey, frame.getHeaderValue(userKey));
-						}
-
-						// Send the message frame to each subscriber
-						for (ClientRemoteSession subscriber : subscribers) {
-							subscriber.sendFrame(messageFrame);
-						}
-					}
-				}
-				manageReceipt(frame);
-			} else {
-				sendError("Can't send message", "You're not allowed to send a message to the topic" + topic);
-			}
-		}
+		sendReceiptIfRequested(frame);
 	}
 
 	/**
@@ -233,9 +175,60 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 		sendError("Unkown command", "The command '" + frame.getCommand() + "' is unkown and can't be managed");
 	}
 
+	public String getSessionToken() {
+		return sessionToken;
+	}
+
+	public void setSessionToken(String sessionToken) {
+		this.sessionToken = sessionToken;
+	}
+
 	@Override
 	public int compareTo(ClientRemoteSession o) {
 		return channel.compareTo(o.channel);
+	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((authentication == null) ? 0 : authentication.hashCode());
+		result = prime * result + ((channel == null) ? 0 : channel.hashCode());
+		result = prime * result + ((sessionToken == null) ? 0 : sessionToken.hashCode());
+		result = prime * result + ((subscriptionManager == null) ? 0 : subscriptionManager.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ClientRemoteSession other = (ClientRemoteSession) obj;
+		if (authentication == null) {
+			if (other.authentication != null)
+				return false;
+		} else if (!authentication.equals(other.authentication))
+			return false;
+		if (channel == null) {
+			if (other.channel != null)
+				return false;
+		} else if (!channel.equals(other.channel))
+			return false;
+		if (sessionToken == null) {
+			if (other.sessionToken != null)
+				return false;
+		} else if (!sessionToken.equals(other.sessionToken))
+			return false;
+		if (subscriptionManager == null) {
+			if (other.subscriptionManager != null)
+				return false;
+		} else if (!subscriptionManager.equals(other.subscriptionManager))
+			return false;
+		return true;
 	}
 
 }

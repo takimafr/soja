@@ -14,7 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.excilys.stomp.model.Frame;
-import com.excilys.stomp.model.Header;
 
 
 /**
@@ -34,17 +33,6 @@ public abstract class StompHandler extends SimpleChannelHandler {
 	public void sendFrame(Frame frame) {
 		LOGGER.debug("Sending : {}", frame);
 		channel.write(frame);
-	}
-
-	/**
-	 * Send a STOMP frame to the remote
-	 * 
-	 * @param command
-	 * @param headers
-	 * @param body
-	 */
-	public void send(String command, Header headers, String body) {
-		sendFrame(new Frame(command, headers, body));
 	}
 
 	@Override

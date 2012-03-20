@@ -13,10 +13,11 @@ import com.excilys.stomp.model.Header;
  * @author dvilleneuve
  * 
  */
-public class UnsubscribeFrame extends Frame {
+public class AckFrame extends Frame {
 
-	public UnsubscribeFrame(Long subscribeId) {
-		super(Frame.COMMAND_UNSUBSCRIBE, new Header().set(Header.HEADER_SUBSCRIPTION_ID, subscribeId.toString()), null);
+	public AckFrame(String messageId, Long subscriptionId) {
+		super(Frame.COMMAND_ACK, new Header().set(Header.HEADER_MESSAGE_ID, messageId).set(Header.HEADER_SUBSCRIPTION,
+				subscriptionId.toString()), null);
 	}
 
 }

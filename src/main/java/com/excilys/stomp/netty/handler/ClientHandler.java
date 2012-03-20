@@ -19,8 +19,13 @@ import org.slf4j.LoggerFactory;
 
 import com.excilys.stomp.events.StompClientListener;
 import com.excilys.stomp.events.StompMessageStateCallback;
+import com.excilys.stomp.model.Ack;
 import com.excilys.stomp.model.Frame;
 import com.excilys.stomp.model.Header;
+import com.excilys.stomp.model.frame.AckFrame;
+import com.excilys.stomp.model.frame.SendFrame;
+import com.excilys.stomp.model.frame.SubscribeFrame;
+import com.excilys.stomp.model.frame.UnsubscribeFrame;
 
 /**
  * @author dvilleneuve
@@ -34,7 +39,8 @@ public class ClientHandler extends StompHandler {
 			Header.HEADER_CONTENT_LENGTH };
 
 	private final List<StompClientListener> stompClientListeners = new ArrayList<StompClientListener>();
-	private final Map<String, StompMessageStateCallback> stompMessagesCallbacks = new HashMap<String, StompMessageStateCallback>();
+	private final Map<String, StompMessageStateCallback> messageStateCallbacks = new HashMap<String, StompMessageStateCallback>();
+	private final Map<Long, Ack> subscriptionsAckMode = new HashMap<Long, Ack>();
 
 	private static long messageSent = 0;
 
@@ -88,19 +94,27 @@ public class ClientHandler extends StompHandler {
 	}
 
 	/**
-	 * Handle MESSAGE command
+	 * Handle MESSAGE command : send back an ACK to the server if asked during subscription, then notify listeners.
 	 * 
 	 * @param frame
 	 */
 	private void handleMessage(Frame frame) {
 		String topic = frame.getHeaderValue(Header.HEADER_DESTINATION);
 		String message = frame.getBody();
+		String messageId = frame.getHeaderValue(Header.HEADER_MESSAGE_ID);
+		Long subscriptionId = Long.valueOf(frame.getHeaderValue(Header.HEADER_SUBSCRIPTION));
 
 		// Retrieve user keys
 		Map<String, String> userHeaders = new HashMap<String, String>();
 		Set<String> userKeys = frame.getHeader().allKeys(MESSAGE_USER_HEADERS_FILTER);
 		for (String userKey : userKeys) {
 			userHeaders.put(userKey, frame.getHeaderValue(userKey));
+		}
+
+		// Send an ACK to the server if needed
+		Ack ackMode = subscriptionsAckMode.get(subscriptionId);
+		if (ackMode != null && ackMode != Ack.AUTO) {
+			sendFrame(new AckFrame(messageId, subscriptionId));
 		}
 
 		// Notify all listeners
@@ -117,8 +131,8 @@ public class ClientHandler extends StompHandler {
 	private void handleReceipt(Frame frame) {
 		String receiptId = frame.getHeaderValue(Header.HEADER_RECEIPT_ID_RESPONSE);
 		if (receiptId != null) {
-			synchronized (stompMessagesCallbacks) {
-				StompMessageStateCallback messageCallback = stompMessagesCallbacks.remove(receiptId);
+			synchronized (messageStateCallbacks) {
+				StompMessageStateCallback messageCallback = messageStateCallbacks.remove(receiptId);
 				if (messageCallback != null) {
 					messageCallback.onMessageSent();
 				}
@@ -127,21 +141,69 @@ public class ClientHandler extends StompHandler {
 	}
 
 	/**
-	 * Add a receipt and send the frame. When the server has successfully processed the client's request, he send back a
-	 * receipt to notify the client.
+	 * Add a receipt if a callback is passed and send the frame. When the server has successfully processed the client's
+	 * request, he send back a receipt to notify the client.
 	 * 
 	 * @param frame
 	 * @param callback
 	 */
 	public void sendFrame(Frame frame, StompMessageStateCallback callback) {
 		if (callback != null) {
-			synchronized (stompMessagesCallbacks) {
-				String receiptId = frame.getCommand() + messageSent++;
-				stompMessagesCallbacks.put(receiptId, callback);
+			synchronized (messageStateCallbacks) {
+				String receiptId = frame.getCommand() + "-" + messageSent++;
+				messageStateCallbacks.put(receiptId, callback);
 				frame.getHeader().put(Header.HEADER_RECEIPT_ID_REQUEST, receiptId);
 			}
 		}
 		sendFrame(frame);
+	}
+
+	/**
+	 * Send a SUBSCRIBE command frame and keep in memory the subscription and the ACK mode for this.
+	 * 
+	 * @param topic
+	 * @param callback
+	 * @param ackMode
+	 * @return the subscription id
+	 */
+	public Long subscribe(String topic, StompMessageStateCallback callback, Ack ackMode) {
+		SubscribeFrame frame = new SubscribeFrame(topic);
+		frame.setAck(ackMode);
+		sendFrame(frame, callback);
+
+		Long subscriptionId = frame.getSubscriptionId();
+		subscriptionsAckMode.put(subscriptionId, ackMode);
+		return subscriptionId;
+	}
+
+	/**
+	 * Send an UNSUBSCRIBE command frame and remove the subscription and ACK mode for this one from the memory.
+	 * 
+	 * @param subscriptionId
+	 * @param callback
+	 */
+	public void unsubscribe(Long subscriptionId, StompMessageStateCallback callback) {
+		subscriptionsAckMode.remove(subscriptionId);
+
+		Frame frame = new UnsubscribeFrame(subscriptionId);
+		sendFrame(frame, callback);
+	}
+
+	/**
+	 * Send a SEND command frame.
+	 * 
+	 * @param topic
+	 * @param message
+	 * @param additionalHeaders
+	 * @param callback
+	 */
+	public void send(String topic, String message, Map<String, String> additionalHeaders,
+			StompMessageStateCallback callback) {
+		Frame frame = new SendFrame(topic, message);
+		if (additionalHeaders != null) {
+			frame.getHeader().putAll(additionalHeaders);
+		}
+		sendFrame(frame, callback);
 	}
 
 	public boolean isConnected() {

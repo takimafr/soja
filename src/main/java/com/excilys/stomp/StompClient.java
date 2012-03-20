@@ -20,12 +20,9 @@ import org.slf4j.LoggerFactory;
 
 import com.excilys.stomp.events.StompClientListener;
 import com.excilys.stomp.events.StompMessageStateCallback;
-import com.excilys.stomp.model.Frame;
+import com.excilys.stomp.model.Ack;
 import com.excilys.stomp.model.frame.ConnectFrame;
 import com.excilys.stomp.model.frame.DisconnectFrame;
-import com.excilys.stomp.model.frame.SendFrame;
-import com.excilys.stomp.model.frame.SubscribeFrame;
-import com.excilys.stomp.model.frame.UnsubscribeFrame;
 import com.excilys.stomp.netty.StompPipelineFactory;
 import com.excilys.stomp.netty.handler.ClientHandler;
 
@@ -141,22 +138,20 @@ public class StompClient {
 		LOGGER.debug("disconnected");
 	}
 
-	public void subscribe(String topic) {
-		subscribe(topic, null);
+	public Long subscribe(String topic) {
+		return subscribe(topic, null, Ack.AUTO);
 	}
 
-	public void subscribe(String topic, StompMessageStateCallback callback) {
-		Frame frame = new SubscribeFrame(topic);
-		clientHandler.sendFrame(frame, callback);
+	public Long subscribe(String topic, StompMessageStateCallback callback, Ack ackMode) {
+		return clientHandler.subscribe(topic, callback, ackMode);
 	}
 
-	public void unsubscribe(String topic) {
-		unsubscribe(topic, null);
+	public void unsubscribe(Long subscriptionId) {
+		unsubscribe(subscriptionId, null);
 	}
 
-	public void unsubscribe(String topic, StompMessageStateCallback callback) {
-		Frame frame = new UnsubscribeFrame(topic);
-		clientHandler.sendFrame(frame, callback);
+	public void unsubscribe(Long subscriptionId, StompMessageStateCallback callback) {
+		clientHandler.unsubscribe(subscriptionId, callback);
 	}
 
 	public void send(String topic, String message) {
@@ -169,11 +164,7 @@ public class StompClient {
 
 	public void send(String topic, String message, Map<String, String> additionalHeaders,
 			StompMessageStateCallback callback) {
-		Frame frame = new SendFrame(topic, message);
-		if (additionalHeaders != null) {
-			frame.getHeader().putAll(additionalHeaders);
-		}
-		clientHandler.sendFrame(frame, callback);
+		clientHandler.send(topic, message, additionalHeaders, callback);
 	}
 
 	public void addListener(StompClientListener stompClientListener) {

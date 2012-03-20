@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import com.excilys.stomp.events.StompClientListener;
 import com.excilys.stomp.events.StompMessageStateCallback;
+import com.excilys.stomp.model.Ack;
 
 /**
  * @author dvilleneuve
@@ -42,7 +43,7 @@ public class ClientMain implements StompClientListener {
 				public void onMessageSent() {
 					LOGGER.debug("Subscribe success for " + id);
 				}
-			});
+			}, Ack.CLIENT);
 
 			if (id % 2 == 0) {
 				// try {
@@ -50,7 +51,12 @@ public class ClientMain implements StompClientListener {
 				// } catch (InterruptedException e) {
 				// e.printStackTrace();
 				// }
-				client.send("/topic", "plop-" + id, userHeaders, null);
+				client.send("/topic", "plop-" + id, userHeaders, new StompMessageStateCallback() {
+					@Override
+					public void onMessageSent() {
+						LOGGER.debug("Sending message success for " + id);
+					}
+				});
 			}
 
 			// }
@@ -65,12 +71,12 @@ public class ClientMain implements StompClientListener {
 
 	@Override
 	public void connected() {
-		LOGGER.debug("Connect to server");
+		LOGGER.debug("Connected to server");
 	}
 
 	@Override
 	public void disconnected() {
-		LOGGER.debug("Disconnect from server");
+		LOGGER.debug("Disconnected from server");
 	}
 
 	@Override

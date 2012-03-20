@@ -28,4 +28,8 @@ public class MessageFrame extends Frame {
 		getHeader().set(Header.HEADER_CONTENT_LENGTH, String.valueOf(getBody().length()));
 	}
 
+	public String getMessageId() {
+		return getHeaderValue(Header.HEADER_MESSAGE_ID);
+	}
+
 }
