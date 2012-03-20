@@ -98,7 +98,7 @@ public class ClientRemoteSession implements Comparable<ClientRemoteSession> {
 	 * @param frame
 	 */
 	public void handleConnect(Frame frame) throws LoginException, UnsupportedVersionException {
-		String[] acceptedVersions = frame.getHeaderValue(Header.HEADER_ACCEPT_VERSION).split(",");
+		String[] acceptedVersions = frame.getHeader().get(Header.HEADER_ACCEPT_VERSION, "").split(",");
 
 		// Check the compatibility of the client and server STOMP version
 		if (ArrayUtils.contains(acceptedVersions, StompServer.STOMP_VERSION)) {

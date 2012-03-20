@@ -71,9 +71,9 @@ public class ServerHandler extends StompHandler {
 	@Override
 	public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
 		super.channelDisconnected(ctx, e);
-		LOGGER.debug("Client {} disconnected. Stopping client session...", ctx.getChannel().getRemoteAddress());
+		clientSessions.remove(ctx.getChannel().getId());
 
-		disconnectClientSession(ctx.getChannel());
+		LOGGER.debug("Client session {} disconnected", ctx.getChannel().getRemoteAddress());
 	}
 
 	@Override
@@ -94,16 +94,16 @@ public class ServerHandler extends StompHandler {
 					clientRemoteSession.handleConnect(frame);
 				} catch (LoginException e) {
 					LOGGER.info("Login failed", e);
-					disconnectClientSession(event.getChannel());
+					disconnectClient(event.getChannel());
 				} catch (UnsupportedVersionException e) {
 					LOGGER.info("The server doesn't support the same STOMP version as the client");
-					disconnectClientSession(event.getChannel());
+					disconnectClient(event.getChannel());
 				}
 			}
 			// DISCONNECT
 			else if (frame.isCommand(Frame.COMMAND_DISCONNECT)) {
 				clientRemoteSession.handleDisconnect(frame);
-				disconnectClientSession(event.getChannel());
+				disconnectClient(event.getChannel());
 			}
 			// SUBSCRIBE
 			else if (frame.isCommand(Frame.COMMAND_SUBSCRIBE)) {
@@ -219,13 +219,12 @@ public class ServerHandler extends StompHandler {
 		}
 	}
 
-	private void disconnectClientSession(Channel channel) {
+	private void disconnectClient(Channel channel) {
 		SocketAddress remoteAddress = channel.getRemoteAddress();
-		LOGGER.debug("Disconnecting client session {}", remoteAddress);
+		LOGGER.debug("Disconnecting client session {}...", remoteAddress);
+
 		channel.close().awaitUninterruptibly(15000);
 		channel.unbind().awaitUninterruptibly(15000);
-		clientSessions.remove(channel.getId());
-		LOGGER.debug("Client session {} disconnected", remoteAddress);
 	}
 
 }
