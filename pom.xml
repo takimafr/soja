@@ -1,9 +1,10 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>com.excilys</groupId>
-	<artifactId>stomp</artifactId>
+	<groupId>com.excilys.soja</groupId>
+	<artifactId>soja-parent</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
+	<packaging>pom</packaging>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -12,6 +13,10 @@
 		<!-- Maven plugins -->
 		<maven-compiler-plugin.version>2.3.2</maven-compiler-plugin.version>
 		<maven-assembly-plugin.version>2.3</maven-assembly-plugin.version>
+
+		<netty.version>3.3.1.Final</netty.version>
+		<commons-lang.version>2.6</commons-lang.version>
+		<logback.version>1.0.0</logback.version>
 	</properties>
 
 	<developers>
@@ -22,30 +27,60 @@
 		</developer>
 	</developers>
 
+	<modules>
+		<module>soja-core</module>
+	</modules>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>io.netty</groupId>
+				<artifactId>netty</artifactId>
+				<version>${netty.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>commons-lang</groupId>
+				<artifactId>commons-lang</artifactId>
+				<version>${commons-lang.version}</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
 	<dependencies>
-		<dependency>
-			<groupId>io.netty</groupId>
-			<artifactId>netty</artifactId>
-			<version>3.3.1.Final</version>
-		</dependency>
-
-		<dependency>
-			<groupId>commons-lang</groupId>
-			<artifactId>commons-lang</artifactId>
-			<version>2.6</version>
-		</dependency>
-
 		<dependency>
 			<groupId>ch.qos.logback</groupId>
 			<artifactId>logback-classic</artifactId>
-			<version>1.0.0</version>
+			<version>${logback.version}</version>
 		</dependency>
 	</dependencies>
 
 	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<artifactId>maven-assembly-plugin</artifactId>
+					<version>${maven-assembly-plugin.version}</version>
+					<configuration>
+						<descriptorRefs>
+							<descriptorRef>jar-with-dependencies</descriptorRef>
+						</descriptorRefs>
+					</configuration>
+					<executions>
+						<execution>
+							<id>make-assembly</id> <!-- this is used for inheritance merges -->
+							<phase>package</phase> <!-- bind to the packaging phase -->
+							<goals>
+								<goal>single</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+
 		<plugins>
 			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>${maven-compiler-plugin.version}</version>
 				<configuration>
@@ -53,25 +88,6 @@
 					<source>${java.version}</source>
 					<target>${java.version}</target>
 				</configuration>
-			</plugin>
-
-			<plugin>
-				<artifactId>maven-assembly-plugin</artifactId>
-				<version>${maven-assembly-plugin.version}</version>
-				<configuration>
-					<descriptorRefs>
-						<descriptorRef>jar-with-dependencies</descriptorRef>
-					</descriptorRefs>
-				</configuration>
-				<executions>
-					<execution>
-						<id>make-assembly</id> <!-- this is used for inheritance merges -->
-						<phase>package</phase> <!-- bind to the packaging phase -->
-						<goals>
-							<goal>single</goal>
-						</goals>
-					</execution>
-				</executions>
 			</plugin>
 		</plugins>
 	</build>
