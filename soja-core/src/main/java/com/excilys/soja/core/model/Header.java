@@ -30,6 +30,7 @@ public class Header extends HashMap<String, String> {
 	public static final String HEADER_HOST = "host";
 	public static final String HEADER_LOGIN = "login";
 	public static final String HEADER_PASSCODE = "passcode";
+	public static final String HEADER_HEART_BEAT = "heart-beat";
 
 	public static final String HEADER_VERSION = "version";
 	public static final String HEADER_SESSION = "session";

@@ -36,6 +36,8 @@ public class Frame {
 	public static final String COMMAND_CONNECTED = "CONNECTED";
 	public static final String COMMAND_ERROR = "ERROR";
 
+	public static final String COMMAND_HEARBEAT = "HEARTBEAT";
+	
 	public static final char EOL_COMMAND = '\n';
 	public static final char EOL_HEADER = '\n';
 	public static final char EOL_HEADERS = '\n';

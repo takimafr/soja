@@ -67,6 +67,9 @@ public class ClientMain {
 					LOGGER.error("STOMP Error '{}' : {}", shortMessage, description);
 				}
 			});
+			if (id == 0) {
+				client.setHeartBeat(15000, 5000);
+			}
 			client.connect();
 
 			client.subscribe("/topic", new StompMessageStateCallback() {

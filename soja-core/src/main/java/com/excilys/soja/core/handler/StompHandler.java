@@ -16,12 +16,13 @@
 package com.excilys.soja.core.handler;
 
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.SimpleChannelHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.excilys.soja.core.model.Frame;
-
 
 /**
  * @author dvilleneuve
@@ -39,6 +40,12 @@ public abstract class StompHandler extends SimpleChannelHandler {
 	public void sendFrame(Channel channel, Frame frame) {
 		LOGGER.debug("Sending : {}", frame);
 		channel.write(frame);
+	}
+
+	@Override
+	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
+		super.exceptionCaught(ctx, e);
+		LOGGER.error("Remote end channel is closed", e);
 	}
 
 }

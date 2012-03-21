@@ -31,6 +31,7 @@ public class ServerMain {
 
 	public static void main(String[] args) {
 		final StompServer server = new StompServer(61626, Authentication.ALLOW_ALL_INSTANCE);
+		server.setHeartBeat(5000, 8000);
 		server.start();
 
 		// Add a hook on the user interupt event

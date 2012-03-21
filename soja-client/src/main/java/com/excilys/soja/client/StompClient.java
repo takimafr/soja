@@ -32,7 +32,6 @@ import com.excilys.soja.client.events.StompMessageStateCallback;
 import com.excilys.soja.client.handler.ClientHandler;
 import com.excilys.soja.core.factory.StompPipelineFactory;
 import com.excilys.soja.core.model.Ack;
-import com.excilys.soja.core.model.frame.ConnectFrame;
 import com.excilys.soja.core.model.frame.DisconnectFrame;
 
 /**
@@ -107,7 +106,7 @@ public class StompClient {
 			LOGGER.debug("Connected to {}:{}. Login with username {}...", new Object[] { hostname, port, username });
 
 			// When connected, send a CONNECT command
-			clientHandler.sendFrame(channel, new ConnectFrame(SUPPORTED_STOMP_VERSION, hostname, username, password));
+			clientHandler.connect(channel, SUPPORTED_STOMP_VERSION, hostname, username, password);
 			return true;
 		}
 		return false;
@@ -182,6 +181,18 @@ public class StompClient {
 
 	public void removeListener(StompClientListener stompClientListener) {
 		clientHandler.removeListener(stompClientListener);
+	}
+
+	public long getGuaranteedHeartBeat() {
+		return clientHandler.getGuaranteedHeartBeat();
+	}
+
+	public long getExpectedHeartBeat() {
+		return clientHandler.getExpectedHeartBeat();
+	}
+
+	public void setHeartBeat(long guaranteedHeartBeat, long expectedHeartBeat) {
+		clientHandler.setHeartBeat(guaranteedHeartBeat, expectedHeartBeat);
 	}
 
 }

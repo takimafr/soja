@@ -29,7 +29,6 @@ import com.excilys.soja.core.factory.StompPipelineFactory;
 import com.excilys.soja.server.authentication.Authentication;
 import com.excilys.soja.server.handler.ServerHandler;
 
-
 /**
  * @author dvilleneuve
  * 
@@ -97,6 +96,18 @@ public class StompServer {
 		}
 
 		LOGGER.debug("Server stopped");
+	}
+
+	public long getGuaranteedHeartBeat() {
+		return serverHandler.getGuaranteedHeartBeat();
+	}
+
+	public long getExpectedHeartBeat() {
+		return serverHandler.getExpectedHeartBeat();
+	}
+
+	public void setHeartBeat(long guaranteedHeartBeat, long expectedHeartBeat) {
+		serverHandler.setHeartBeat(guaranteedHeartBeat, expectedHeartBeat);
 	}
 
 }

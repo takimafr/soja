@@ -29,6 +29,7 @@ import static com.excilys.soja.core.model.Frame.COMMAND_RECEIPT;
 import static com.excilys.soja.core.model.Frame.COMMAND_SEND;
 import static com.excilys.soja.core.model.Frame.COMMAND_SUBSCRIBE;
 import static com.excilys.soja.core.model.Frame.COMMAND_UNSUBSCRIBE;
+import static com.excilys.soja.core.model.Frame.COMMAND_HEARBEAT;
 
 import java.io.IOException;
 import java.util.Scanner;
@@ -48,7 +49,7 @@ public class FrameParser {
 
 	private static final String[] VALID_COMMANDS = { COMMAND_CONNECT, COMMAND_DISCONNECT, COMMAND_SEND,
 			COMMAND_MESSAGE, COMMAND_SUBSCRIBE, COMMAND_UNSUBSCRIBE, COMMAND_BEGIN, COMMAND_COMMIT, COMMAND_ABORT,
-			COMMAND_RECEIPT, COMMAND_CONNECTED, COMMAND_ERROR, COMMAND_ACK, COMMAND_NACK };
+			COMMAND_RECEIPT, COMMAND_CONNECTED, COMMAND_ERROR, COMMAND_ACK, COMMAND_NACK, COMMAND_HEARBEAT };
 	private static final String[] COMMANDS_WITH_BODY = { COMMAND_SEND, COMMAND_MESSAGE, COMMAND_ERROR };
 
 	public static Frame parseStream(String frameString) throws IOException, ParseException {
