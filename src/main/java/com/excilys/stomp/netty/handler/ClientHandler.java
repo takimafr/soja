@@ -136,7 +136,7 @@ public class ClientHandler extends StompHandler {
 			synchronized (messageStateCallbacks) {
 				StompMessageStateCallback messageCallback = messageStateCallbacks.remove(receiptId);
 				if (messageCallback != null) {
-					messageCallback.onMessageSent();
+					messageCallback.receiptReceived();
 				}
 			}
 		}

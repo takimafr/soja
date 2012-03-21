@@ -61,7 +61,7 @@ public class ClientMain {
 
 			client.subscribe("/topic", new StompMessageStateCallback() {
 				@Override
-				public void onMessageSent() {
+				public void receiptReceived() {
 					LOGGER.debug("Subscribe success for " + id);
 				}
 			}, Ack.CLIENT);
@@ -69,7 +69,7 @@ public class ClientMain {
 			if (id % 2 == 0) {
 				client.send("/topic", "plop-" + id, userHeaders, new StompMessageStateCallback() {
 					@Override
-					public void onMessageSent() {
+					public void receiptReceived() {
 						LOGGER.debug("Sending message success for " + id);
 					}
 				});
