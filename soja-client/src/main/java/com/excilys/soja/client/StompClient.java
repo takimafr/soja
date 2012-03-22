@@ -67,6 +67,8 @@ public class StompClient {
 				return pipeline;
 			}
 		});
+		this.clientBootstrap.setOption("tcpNoDelay", true);
+		this.clientBootstrap.setOption("keepAlive", true);
 	}
 
 	/**
@@ -181,18 +183,6 @@ public class StompClient {
 
 	public void removeListener(StompClientListener stompClientListener) {
 		clientHandler.removeListener(stompClientListener);
-	}
-
-	public long getGuaranteedHeartBeat() {
-		return clientHandler.getGuaranteedHeartBeat();
-	}
-
-	public long getExpectedHeartBeat() {
-		return clientHandler.getExpectedHeartBeat();
-	}
-
-	public void setHeartBeat(long guaranteedHeartBeat, long expectedHeartBeat) {
-		clientHandler.setHeartBeat(guaranteedHeartBeat, expectedHeartBeat);
 	}
 
 }

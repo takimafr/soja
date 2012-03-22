@@ -19,8 +19,6 @@ import java.net.SocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.TreeSet;
 
 import javax.security.auth.login.LoginException;
@@ -40,7 +38,6 @@ import com.excilys.soja.core.model.Frame;
 import com.excilys.soja.core.model.Header;
 import com.excilys.soja.core.model.frame.ConnectedFrame;
 import com.excilys.soja.core.model.frame.ErrorFrame;
-import com.excilys.soja.core.model.frame.HeartBeatFrame;
 import com.excilys.soja.core.model.frame.MessageFrame;
 import com.excilys.soja.core.utils.FrameFactory;
 import com.excilys.soja.server.StompServer;
@@ -61,18 +58,14 @@ public class ServerHandler extends StompHandler {
 	private static final String[] SEND_USER_HEADERS_FILTER = new String[] { Header.HEADER_DESTINATION,
 			Header.HEADER_TRANSACTION, Header.HEADER_CONTENT_TYPE, Header.HEADER_CONTENT_LENGTH,
 			Header.HEADER_RECEIPT_ID_REQUEST };
+	private static final SubscriptionManager subscriptionManager = SubscriptionManager.getInstance();
+	private static final Map<String, AckWaiting> waitingAcks = new HashMap<String, AckWaiting>();
 
 	private final Authentication authentication;
-	private final SubscriptionManager subscriptionManager;
-	private final Map<Integer, String> clientSessionTokens = new HashMap<Integer, String>();
-	private final Map<String, AckWaiting> waitingAcks = new HashMap<String, AckWaiting>();
-	private long serverGuaranteedHeartBeat;
-	private long serverExpectedHeartBeat;
-	private Timer serverHeartBeartTimer;
+	private String clientSessionToken;
 
 	public ServerHandler(Authentication authentication) {
 		this.authentication = authentication;
-		this.subscriptionManager = SubscriptionManager.getInstance();
 
 		LOGGER.debug("create ServerHandler");
 	}
@@ -86,9 +79,7 @@ public class ServerHandler extends StompHandler {
 	@Override
 	public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
 		super.channelDisconnected(ctx, e);
-		clientSessionTokens.remove(ctx.getChannel().getId());
-		serverHeartBeartTimer.cancel();
-
+		clientSessionToken = null;
 		LOGGER.debug("Client session {} closed", ctx.getChannel().getRemoteAddress());
 	}
 
@@ -156,7 +147,6 @@ public class ServerHandler extends StompHandler {
 	public void handleConnect(final Channel channel, Frame frame) throws LoginException, UnsupportedVersionException,
 			AlreadyConnectedException {
 		// Retrieve the session for this client
-		String clientSessionToken = clientSessionTokens.get(channel.getId());
 		if (clientSessionToken != null) {
 			throw new AlreadyConnectedException("User try to connect but it seems to be already connected");
 		}
@@ -170,36 +160,15 @@ public class ServerHandler extends StompHandler {
 
 			try {
 				// Check the credentials of the user
-				clientSessionTokens.put(channel.getId(), authentication.connect(login, password));
+				clientSessionToken = authentication.connect(login, password);
 
 				// Create the frame to send
 				ConnectedFrame connectedFrame = new ConnectedFrame(StompServer.STOMP_VERSION);
 
-				// Looking for a heart-beat header
-				String heartBeatString = frame.getHeaderValue(Header.HEADER_HEART_BEAT);
-				if (heartBeatString != null) {
-					String[] heartBeat = heartBeatString.split(",");
-					if (heartBeat.length == 2) {
-						long clientGuaranteedHeartBeat = Long.parseLong(heartBeat[0]);
-						long clientExpectedHeartBeat = Long.parseLong(heartBeat[1]);
-
-						// Check it the server is expecting a hear-beating and if the client can do it
-						if (serverGuaranteedHeartBeat != 0 && clientExpectedHeartBeat != 0) {
-							long heartBeatInterval = Math.max(serverGuaranteedHeartBeat, clientExpectedHeartBeat);
-
-							// Launch a scheduler
-							serverHeartBeartTimer = new Timer("Heart-beating");
-							serverHeartBeartTimer.scheduleAtFixedRate(new TimerTask() {
-								@Override
-								public void run() {
-									sendFrame(channel, new HeartBeatFrame());
-								}
-							}, 0, heartBeatInterval);
-						}
-					}
-
-					connectedFrame.setHeaderValue(Header.HEADER_HEART_BEAT, serverGuaranteedHeartBeat + ","
-							+ serverExpectedHeartBeat);
+				// Start the heart-beat scheduler if needed
+				if (startLocalHeartBeat(channel, frame)) {
+					connectedFrame.setHeaderValue(Header.HEADER_HEART_BEAT, getLocalGuaranteedHeartBeat() + ","
+							+ getLocalExpectedHeartBeat());
 				}
 
 				sendFrame(channel, connectedFrame);
@@ -222,7 +191,6 @@ public class ServerHandler extends StompHandler {
 	 * @param frame
 	 */
 	public void handleDisconnect(Channel channel, Frame frame) {
-		String clientSessionToken = clientSessionTokens.get(channel.getId());
 		// Remove all subscription for this client's session
 		subscriptionManager.removeSubscriptions(clientSessionToken);
 
@@ -238,7 +206,6 @@ public class ServerHandler extends StompHandler {
 		String topic = sendFrame.getHeaderValue(Header.HEADER_DESTINATION);
 
 		synchronized (authentication) {
-			String clientSessionToken = clientSessionTokens.get(channel.getId());
 			if (!authentication.canSend(clientSessionToken, topic)) {
 				sendError(channel, "Can't send message", "You're not allowed to send a message to the topic" + topic);
 				return;
@@ -303,7 +270,6 @@ public class ServerHandler extends StompHandler {
 		String topic = frame.getHeaderValue(Header.HEADER_DESTINATION);
 		Long subscriptionId = Long.valueOf(frame.getHeaderValue(Header.HEADER_SUBSCRIPTION_ID));
 		Ack ackMode = Ack.parseAck(frame.getHeaderValue(Header.HEADER_ACK));
-		String clientSessionToken = clientSessionTokens.get(channel.getId());
 
 		if (authentication.canSubscribe(clientSessionToken, topic)) {
 			synchronized (SubscriptionManager.class) {
@@ -324,7 +290,6 @@ public class ServerHandler extends StompHandler {
 		Long subscriptionId = Long.valueOf(frame.getHeaderValue(Header.HEADER_SUBSCRIPTION_ID));
 
 		synchronized (SubscriptionManager.class) {
-			String clientSessionToken = clientSessionTokens.get(channel.getId());
 			subscriptionManager.removeSubscription(clientSessionToken, subscriptionId);
 		}
 		sendReceiptIfRequested(channel, frame);
@@ -351,15 +316,6 @@ public class ServerHandler extends StompHandler {
 				}
 			}
 		}
-	}
-
-	/**
-	 * Handle HEARTBEAT command
-	 * 
-	 * @param frame
-	 */
-	public void handleHeartBeat(final Channel channel, Frame frame) {
-		// TODO: manage heart-beat
 	}
 
 	/**
@@ -406,35 +362,6 @@ public class ServerHandler extends StompHandler {
 
 		channel.close().awaitUninterruptibly(15000);
 		channel.unbind().awaitUninterruptibly(15000);
-	}
-
-	public long getGuaranteedHeartBeat() {
-		return serverGuaranteedHeartBeat;
-	}
-
-	public long getExpectedHeartBeat() {
-		return serverExpectedHeartBeat;
-	}
-
-	/**
-	 * Set the heart-bearting parameters on client-side
-	 * 
-	 * @param guaranteedHeartBeat
-	 *            smallest number of milliseconds between heart-beats that the client can guarantee
-	 * @param expectedHearBeat
-	 *            the desired number of milliseconds between server's heart-beats
-	 * @throws IllegalArgumentException
-	 *             if guaranteedHeartBeat or expectedHearBeat are minus to 0
-	 */
-	public void setHeartBeat(long guaranteedHeartBeat, long expectedHeartBeat) throws IllegalArgumentException {
-		if (guaranteedHeartBeat < 0)
-			throw new IllegalArgumentException("Minimum heart-beat guaranteed have to be a positive number");
-		if (expectedHeartBeat < 0)
-			throw new IllegalArgumentException("Desired interval between heart-beat have to be a positive number");
-
-		// TODO : Block values when the client is connected
-		this.serverGuaranteedHeartBeat = guaranteedHeartBeat;
-		this.serverExpectedHeartBeat = expectedHeartBeat;
 	}
 
 }

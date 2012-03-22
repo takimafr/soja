@@ -15,14 +15,20 @@
  */
 package com.excilys.soja.core.handler;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.SimpleChannelHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.excilys.soja.core.model.Frame;
+import com.excilys.soja.core.model.Header;
+import com.excilys.soja.core.model.frame.HeartBeatFrame;
 
 /**
  * @author dvilleneuve
@@ -31,6 +37,33 @@ import com.excilys.soja.core.model.Frame;
 public abstract class StompHandler extends SimpleChannelHandler {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(StompHandler.class);
+
+	private static long localGuaranteedHeartBeat;
+	private static long localExpectedHeartBeat;
+	private Timer localHeartBeartTimer;
+
+	@Override
+	public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
+		super.channelDisconnected(ctx, e);
+		if (localHeartBeartTimer != null) {
+			localHeartBeartTimer.cancel();
+		}
+	}
+
+	@Override
+	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
+		super.exceptionCaught(ctx, e);
+		LOGGER.error("Remote end channel is closed", e);
+	}
+
+	/**
+	 * Handle HEARTBEAT command
+	 * 
+	 * @param frame
+	 */
+	public void handleHeartBeat(final Channel channel, Frame frame) {
+		// TODO: manage heart-beat
+	}
 
 	/**
 	 * Send a STOMP frame to the remote
@@ -42,10 +75,68 @@ public abstract class StompHandler extends SimpleChannelHandler {
 		channel.write(frame);
 	}
 
-	@Override
-	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-		super.exceptionCaught(ctx, e);
-		LOGGER.error("Remote end channel is closed", e);
+	/**
+	 * Start a scheduler for the heart-beating system.
+	 * 
+	 * @param channel
+	 * @param remoteExpectedHeartBeat
+	 */
+	public boolean startLocalHeartBeat(final Channel channel, final Frame frame) {
+		String heartBeatString = frame.getHeaderValue(Header.HEADER_HEART_BEAT);
+		if (heartBeatString != null) {
+			String[] heartBeat = heartBeatString.split(",");
+			if (heartBeat.length == 2) {
+				// long remoteGuaranteedHeartBeat = Long.parseLong(heartBeat[0]);
+				long remoteExpectedHeartBeat = Long.parseLong(heartBeat[1]);
+
+				// Check it the server is expecting a hear-beating and if the client can do it
+				if (localGuaranteedHeartBeat != 0 && remoteExpectedHeartBeat != 0) {
+					long heartBeatInterval = Math.max(localGuaranteedHeartBeat, remoteExpectedHeartBeat);
+
+					// Launch a scheduler
+					localHeartBeartTimer = new Timer("Heart-beating");
+					localHeartBeartTimer.scheduleAtFixedRate(new TimerTask() {
+						@Override
+						public void run() {
+							sendFrame(channel, new HeartBeatFrame());
+						}
+					}, 0, heartBeatInterval);
+
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	public static long getLocalGuaranteedHeartBeat() {
+		return localGuaranteedHeartBeat;
+	}
+
+	public static long getLocalExpectedHeartBeat() {
+		return localExpectedHeartBeat;
+	}
+
+	/**
+	 * Set the heart-bearting parameters on client-side
+	 * 
+	 * @param localGuaranteedHeartBeat
+	 *            smallest number of milliseconds between heart-beats that this local part can guarantee
+	 * @param localExpectedHeartBeat
+	 *            the desired number of milliseconds between remote's heart-beats
+	 * @throws IllegalArgumentException
+	 *             if guaranteedHeartBeat or expectedHearBeat are minus to 0
+	 */
+	public static void setHeartBeat(long localGuaranteedHeartBeat, long localExpectedHeartBeat)
+			throws IllegalArgumentException {
+		if (localGuaranteedHeartBeat < 0)
+			throw new IllegalArgumentException("Minimum heart-beat guaranteed have to be a positive number");
+		if (localExpectedHeartBeat < 0)
+			throw new IllegalArgumentException("Desired interval between heart-beat have to be a positive number");
+
+		// TODO : Block values when the client is connected
+		StompHandler.localGuaranteedHeartBeat = localGuaranteedHeartBeat;
+		StompHandler.localExpectedHeartBeat = localExpectedHeartBeat;
 	}
 
 }

@@ -44,19 +44,17 @@ public class StompServer {
 	private final int port;
 	private final ServerBootstrap serverBootstrap;
 	private Channel acceptorChannel;
-	private ServerHandler serverHandler;
 
-	public StompServer(int port, Authentication authentication) {
+	public StompServer(int port, final Authentication authentication) {
 		this.port = port;
 		this.serverBootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool(),
 				Executors.newCachedThreadPool()));
-		this.serverHandler = new ServerHandler(authentication);
 
 		this.serverBootstrap.setPipelineFactory(new StompPipelineFactory() {
 			@Override
 			public ChannelPipeline getPipeline() throws Exception {
 				ChannelPipeline pipeline = super.getPipeline();
-				pipeline.addLast("handler", serverHandler);
+				pipeline.addLast("handler", new ServerHandler(authentication));
 				return pipeline;
 			}
 		});
@@ -70,10 +68,10 @@ public class StompServer {
 	public boolean start() {
 		acceptorChannel = serverBootstrap.bind(new InetSocketAddress(port));
 		if (acceptorChannel.isBound()) {
-			LOGGER.debug("Server started on port {}. Start listening...", port);
+			LOGGER.debug("Server started and bound on {}. Start listening...", acceptorChannel.getLocalAddress());
 			return true;
 		} else {
-			LOGGER.debug("Server failed to start on port {}", port);
+			LOGGER.debug("Server failed to start on {}", acceptorChannel.getLocalAddress());
 			return false;
 		}
 	}
@@ -98,16 +96,16 @@ public class StompServer {
 		LOGGER.debug("Server stopped");
 	}
 
-	public long getGuaranteedHeartBeat() {
-		return serverHandler.getGuaranteedHeartBeat();
+	public long getLocalGuaranteedHeartBeat() {
+		return ServerHandler.getLocalGuaranteedHeartBeat();
 	}
 
-	public long getExpectedHeartBeat() {
-		return serverHandler.getExpectedHeartBeat();
+	public long getLocalExpectedHeartBeat() {
+		return ServerHandler.getLocalExpectedHeartBeat();
 	}
 
 	public void setHeartBeat(long guaranteedHeartBeat, long expectedHeartBeat) {
-		serverHandler.setHeartBeat(guaranteedHeartBeat, expectedHeartBeat);
+		ServerHandler.setHeartBeat(guaranteedHeartBeat, expectedHeartBeat);
 	}
 
 }

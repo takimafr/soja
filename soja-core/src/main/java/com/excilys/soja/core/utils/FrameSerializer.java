@@ -34,7 +34,7 @@ public class FrameSerializer {
 		if (command != null && command.length() > 0) {
 			formatedFrame.append(command).append(Frame.EOL_COMMAND);
 		} else {
-			return null;
+			return "";
 		}
 
 		// HEADER

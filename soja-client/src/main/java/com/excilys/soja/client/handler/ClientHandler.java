@@ -20,8 +20,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
 
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -39,7 +37,6 @@ import com.excilys.soja.core.model.Frame;
 import com.excilys.soja.core.model.Header;
 import com.excilys.soja.core.model.frame.AckFrame;
 import com.excilys.soja.core.model.frame.ConnectFrame;
-import com.excilys.soja.core.model.frame.HeartBeatFrame;
 import com.excilys.soja.core.model.frame.SendFrame;
 import com.excilys.soja.core.model.frame.SubscribeFrame;
 import com.excilys.soja.core.model.frame.UnsubscribeFrame;
@@ -62,21 +59,16 @@ public class ClientHandler extends StompHandler {
 	private static long messageSent = 0;
 
 	private boolean connected = false;
-	private long clientGuaranteedHeartBeat = 0;
-	private long clientExpectedHeartBeat = 0;
-	private Timer clientHeartBeartTimer;
 
 	@Override
 	public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
 		super.channelDisconnected(ctx, e);
-		clientHeartBeartTimer.cancel();
+		LOGGER.debug("Client session {} closed", ctx.getChannel().getRemoteAddress());
 
 		// Notify all listeners
 		for (StompClientListener listener : stompClientListeners) {
 			listener.disconnected();
 		}
-
-		LOGGER.debug("Client session {} closed", ctx.getChannel().getRemoteAddress());
 	}
 
 	@Override
@@ -129,32 +121,11 @@ public class ClientHandler extends StompHandler {
 	 * @param frame
 	 */
 	private void handleConnected(final Channel channel, Frame frame) {
-		// Looking for a heart-beat header
-		String heartBeatString = frame.getHeaderValue(Header.HEADER_HEART_BEAT);
-		if (heartBeatString != null) {
-			String[] heartBeat = heartBeatString.split(",");
-			if (heartBeat.length == 2) {
-				long serverGuaranteedHeartBeat = Long.parseLong(heartBeat[0]);
-				long serverExpectedHeartBeat = Long.parseLong(heartBeat[1]);
-
-				// Check it the server is expecting a hear-beating and if the client can do it
-				if (clientGuaranteedHeartBeat != 0 && serverExpectedHeartBeat != 0) {
-					long heartBeatInterval = Math.max(clientGuaranteedHeartBeat, serverExpectedHeartBeat);
-
-					// Launch a scheduler
-					clientHeartBeartTimer = new Timer("Heart-beating");
-					clientHeartBeartTimer.scheduleAtFixedRate(new TimerTask() {
-						@Override
-						public void run() {
-							sendFrame(channel, new HeartBeatFrame());
-						}
-					}, 0, heartBeatInterval);
-				}
-			}
-		}
+		// Start the heart-beat scheduler if needed
+		startLocalHeartBeat(channel, frame);
 
 		connected = true;
-
+		
 		// Notify all listeners
 		for (StompClientListener listener : stompClientListeners) {
 			listener.connected();
@@ -243,10 +214,10 @@ public class ClientHandler extends StompHandler {
 	public void connect(final Channel channel, String stompVersionSupported, String hostname, String username,
 			String password) {
 		ConnectFrame connectFrame = new ConnectFrame(stompVersionSupported, hostname, username, password);
-		if (clientGuaranteedHeartBeat > 0 || clientExpectedHeartBeat > 0) {
-			LOGGER.debug("Heart-beating activated : {}, {}", clientGuaranteedHeartBeat, clientExpectedHeartBeat);
-			connectFrame.setHeaderValue(Header.HEADER_HEART_BEAT, clientGuaranteedHeartBeat + ","
-					+ clientExpectedHeartBeat);
+		if (getLocalGuaranteedHeartBeat() > 0 || getLocalExpectedHeartBeat() > 0) {
+			LOGGER.debug("Heart-beating activated : {}, {}", getLocalGuaranteedHeartBeat(), getLocalExpectedHeartBeat());
+			connectFrame.setHeaderValue(Header.HEADER_HEART_BEAT, getLocalGuaranteedHeartBeat() + ","
+					+ getLocalExpectedHeartBeat());
 		}
 		sendFrame(channel, connectFrame);
 	}
@@ -299,15 +270,6 @@ public class ClientHandler extends StompHandler {
 		sendFrame(channel, frame, callback);
 	}
 
-	/**
-	 * Handle HEARTBEAT command
-	 * 
-	 * @param frame
-	 */
-	public void handleHeartBeat(final Channel channel, Frame frame) {
-		// TODO: manage heart-beat
-	}
-
 	public boolean isConnected() {
 		return connected;
 	}
@@ -320,33 +282,11 @@ public class ClientHandler extends StompHandler {
 		stompClientListeners.remove(stompClientListener);
 	}
 
-	public long getGuaranteedHeartBeat() {
-		return clientGuaranteedHeartBeat;
-	}
-
-	public long getExpectedHeartBeat() {
-		return clientExpectedHeartBeat;
-	}
-
-	/**
-	 * Set the heart-bearting parameters on client-side
-	 * 
-	 * @param guaranteedHeartBeat
-	 *            smallest number of milliseconds between heart-beats that the client can guarantee
-	 * @param expectedHearBeat
-	 *            the desired number of milliseconds between server's heart-beats
-	 * @throws IllegalArgumentException
-	 *             if guaranteedHeartBeat or expectedHearBeat are minus to 0
-	 */
-	public void setHeartBeat(long guaranteedHeartBeat, long expectedHeartBeat) throws IllegalArgumentException {
-		if (guaranteedHeartBeat < 0)
-			throw new IllegalArgumentException("Minimum heart-beat guaranteed have to be a positive number");
-		if (expectedHeartBeat < 0)
-			throw new IllegalArgumentException("Desired interval between heart-beat have to be a positive number");
-
-		// TODO : Block values when the client is connected
-		this.clientGuaranteedHeartBeat = guaranteedHeartBeat;
-		this.clientExpectedHeartBeat = expectedHeartBeat;
+	@Override
+	public boolean startLocalHeartBeat(Channel channel, Frame frame) throws RuntimeException {
+		if (isConnected())
+			throw new RuntimeException("You can't change heart-beat parameters while the client is connected to server");
+		return super.startLocalHeartBeat(channel, frame);
 	}
 
 }

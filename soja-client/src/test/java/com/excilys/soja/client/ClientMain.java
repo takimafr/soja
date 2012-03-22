@@ -68,7 +68,7 @@ public class ClientMain {
 				}
 			});
 			if (id == 0) {
-				client.setHeartBeat(15000, 5000);
+//				client.setHeartBeat(15000, 5000);
 			}
 			client.connect();
 
