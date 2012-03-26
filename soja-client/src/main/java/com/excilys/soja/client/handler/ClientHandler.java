@@ -58,7 +58,8 @@ public class ClientHandler extends StompHandler {
 
 	private static long messageSent = 0;
 
-	private boolean connected = false;
+	private boolean loginRequested = false;
+	private boolean loggedIn = false;
 
 	@Override
 	public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
@@ -124,8 +125,8 @@ public class ClientHandler extends StompHandler {
 		// Start the heart-beat scheduler if needed
 		startLocalHeartBeat(channel, frame);
 
-		connected = true;
-		
+		loggedIn = true;
+
 		// Notify all listeners
 		for (StompClientListener listener : stompClientListeners) {
 			listener.connected();
@@ -185,8 +186,20 @@ public class ClientHandler extends StompHandler {
 	 * 
 	 * @param frame
 	 * @param callback
+	 * @return true if the frame has been sent, false if the frame couldn't be sent because the user wasn't try to login
 	 */
-	public void sendFrame(final Channel channel, Frame frame, StompMessageStateCallback callback) {
+	public boolean sendFrame(final Channel channel, Frame frame, StompMessageStateCallback callback) {
+		if (!isLoginRequested()) {
+			String shortMessage = "You're not logged in";
+			String description = "You must connect to the server before trying to send a " + frame.getCommand()
+					+ " command";
+
+			for (StompClientListener stompClientListener : stompClientListeners) {
+				stompClientListener.receivedError(shortMessage, description);
+			}
+			return false;
+		}
+
 		if (callback != null) {
 			synchronized (messageStateCallbacks) {
 				String receiptId = frame.getCommand() + "-" + messageSent++;
@@ -195,6 +208,7 @@ public class ClientHandler extends StompHandler {
 			}
 		}
 		sendFrame(channel, frame);
+		return true;
 	}
 
 	/**
@@ -213,6 +227,8 @@ public class ClientHandler extends StompHandler {
 	 */
 	public void connect(final Channel channel, String stompVersionSupported, String hostname, String username,
 			String password) {
+		loginRequested = true;
+
 		ConnectFrame connectFrame = new ConnectFrame(stompVersionSupported, hostname, username, password);
 		if (getLocalGuaranteedHeartBeat() > 0 || getLocalExpectedHeartBeat() > 0) {
 			LOGGER.debug("Heart-beating activated : {}, {}", getLocalGuaranteedHeartBeat(), getLocalExpectedHeartBeat());
@@ -233,7 +249,10 @@ public class ClientHandler extends StompHandler {
 	public Long subscribe(final Channel channel, String topic, StompMessageStateCallback callback, Ack ackMode) {
 		SubscribeFrame frame = new SubscribeFrame(topic);
 		frame.setAck(ackMode);
-		sendFrame(channel, frame, callback);
+
+		if (!sendFrame(channel, frame, callback)) {
+			return -1L;
+		}
 
 		Long subscriptionId = frame.getSubscriptionId();
 		subscriptionsAckMode.put(subscriptionId, ackMode);
@@ -270,8 +289,19 @@ public class ClientHandler extends StompHandler {
 		sendFrame(channel, frame, callback);
 	}
 
-	public boolean isConnected() {
-		return connected;
+	/**
+	 * @return true if the user try to login (ie: Sent a CONNECT frame). Else, return false
+	 */
+	public boolean isLoginRequested() {
+		return loginRequested;
+	}
+
+	/**
+	 * @return true if the user is logged in (ie: Sent a CONNECT frame and receive a CONNECTED frame). Else, return
+	 *         false
+	 */
+	public boolean isLoggedIn() {
+		return loggedIn;
 	}
 
 	public void addListener(StompClientListener stompClientListener) {
@@ -284,7 +314,7 @@ public class ClientHandler extends StompHandler {
 
 	@Override
 	public boolean startLocalHeartBeat(Channel channel, Frame frame) throws RuntimeException {
-		if (isConnected())
+		if (isLoggedIn())
 			throw new RuntimeException("You can't change heart-beat parameters while the client is connected to server");
 		return super.startLocalHeartBeat(channel, frame);
 	}

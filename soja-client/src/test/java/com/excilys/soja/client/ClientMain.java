@@ -64,7 +64,7 @@ public class ClientMain {
 
 				@Override
 				public void receivedError(String shortMessage, String description) {
-					LOGGER.error("STOMP Error '{}' : {}", shortMessage, description);
+					LOGGER.error("STOMP Error \"{}\" : {}", shortMessage, description);
 				}
 			});
 			if (id == 0) {
