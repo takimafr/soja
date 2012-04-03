@@ -85,7 +85,7 @@ public class ServerHandler extends StompHandler {
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-		super.exceptionCaught(ctx, e);
+//		LOGGER.warn("Exception throwed by Netty", e.getCause());
 		ctx.getChannel().close().awaitUninterruptibly(2000);
 	}
 
@@ -214,9 +214,7 @@ public class ServerHandler extends StompHandler {
 
 		// Retrieve subscribers for the given topic
 		Set<Subscription> subscriptions = null;
-		synchronized (SubscriptionManager.class) {
-			subscriptions = subscriptionManager.retrieveSubscriptionsByTopic(topic);
-		}
+		subscriptions = subscriptionManager.retrieveSubscriptionsByTopic(topic);
 
 		if (subscriptions != null && subscriptions.size() > 0) {
 			// Construct the MESSAGE frame
@@ -272,9 +270,7 @@ public class ServerHandler extends StompHandler {
 		Ack ackMode = Ack.parseAck(frame.getHeaderValue(Header.HEADER_ACK));
 
 		if (authentication.canSubscribe(clientSessionToken, topic)) {
-			synchronized (SubscriptionManager.class) {
-				subscriptionManager.addSubscription(channel, clientSessionToken, subscriptionId, topic, ackMode);
-			}
+			subscriptionManager.addSubscription(channel, clientSessionToken, subscriptionId, topic, ackMode);
 			sendReceiptIfRequested(channel, frame);
 		} else {
 			sendError(channel, "Can't subscribe", "You're not allowed to subscribe to the topic" + topic);
@@ -289,9 +285,7 @@ public class ServerHandler extends StompHandler {
 	public void handleUnsubscribe(Channel channel, Frame frame) {
 		Long subscriptionId = Long.valueOf(frame.getHeaderValue(Header.HEADER_SUBSCRIPTION_ID));
 
-		synchronized (SubscriptionManager.class) {
-			subscriptionManager.removeSubscription(clientSessionToken, subscriptionId);
-		}
+		subscriptionManager.removeSubscription(clientSessionToken, subscriptionId);
 		sendReceiptIfRequested(channel, frame);
 	}
 

@@ -49,7 +49,7 @@ public class SubscriptionManager {
 	 * @param topic
 	 * @return
 	 */
-	public Set<Subscription> retrieveSubscriptionsByTopic(String topic) {
+	public synchronized Set<Subscription> retrieveSubscriptionsByTopic(String topic) {
 		return topicsSubscriptions.get(topic);
 	}
 
@@ -59,7 +59,7 @@ public class SubscriptionManager {
 	 * @param clientSessionToken
 	 * @return
 	 */
-	public Map<Long, Subscription> retrieveSubscriptionsByToken(String clientSessionToken) {
+	public synchronized Map<Long, Subscription> retrieveSubscriptionsByToken(String clientSessionToken) {
 		return clientsSubscriptions.get(clientSessionToken);
 	}
 
@@ -74,8 +74,8 @@ public class SubscriptionManager {
 	 * @param ackMode
 	 * @return true if the subscriber has beed added, false else (or if he's already added)
 	 */
-	public Subscription addSubscription(Channel channel, String clientSessionToken, Long subscriptionId, String topic,
-			Ack ackMode) {
+	public synchronized Subscription addSubscription(Channel channel, String clientSessionToken, Long subscriptionId,
+			String topic, Ack ackMode) {
 		Subscription subscription = new Subscription(channel, subscriptionId, topic, ackMode);
 
 		// Clients subscriptions
@@ -104,7 +104,7 @@ public class SubscriptionManager {
 	 * @param subscriptionId
 	 * @return true if the client has subscribed to this topic, false else
 	 */
-	public boolean removeSubscription(String clientSessionToken, Long subscriptionId) {
+	public synchronized boolean removeSubscription(String clientSessionToken, Long subscriptionId) {
 		// Clients subscriptions
 		Map<Long, Subscription> clientSubscriptions = retrieveSubscriptionsByToken(clientSessionToken);
 		if (clientSubscriptions != null) {
@@ -132,7 +132,7 @@ public class SubscriptionManager {
 	 * 
 	 * @param topic
 	 */
-	public void removeSubscriptions(String clientSessionToken) {
+	public synchronized void removeSubscriptions(String clientSessionToken) {
 		Map<Long, Subscription> removedClientSubscriptions = clientsSubscriptions.remove(clientSessionToken);
 
 		// Topics subscriptions

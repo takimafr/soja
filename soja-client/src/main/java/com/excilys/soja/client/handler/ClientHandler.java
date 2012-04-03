@@ -74,7 +74,7 @@ public class ClientHandler extends StompHandler {
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-		super.exceptionCaught(ctx, e);
+//		LOGGER.warn("Exception throwed by Netty", e.getCause());
 		ctx.getChannel().close().awaitUninterruptibly(2000);
 	}
 
