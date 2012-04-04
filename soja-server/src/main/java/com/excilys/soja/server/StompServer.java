@@ -41,11 +41,13 @@ public class StompServer {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(StompServer.class);
 
+	private final String hostname;
 	private final int port;
 	private final ServerBootstrap serverBootstrap;
 	private Channel acceptorChannel;
 
-	public StompServer(int port, final Authentication authentication) {
+	public StompServer(String hostname, int port, final Authentication authentication) {
+		this.hostname = hostname;
 		this.port = port;
 		this.serverBootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool(),
 				Executors.newCachedThreadPool()));
@@ -66,7 +68,7 @@ public class StompServer {
 	 * Start the server and listen to new connection requests.
 	 */
 	public boolean start() {
-		acceptorChannel = serverBootstrap.bind(new InetSocketAddress(port));
+		acceptorChannel = serverBootstrap.bind(new InetSocketAddress(hostname, port));
 		if (acceptorChannel.isBound()) {
 			LOGGER.debug("Server started and bound on {}. Start listening...", acceptorChannel.getLocalAddress());
 			return true;
