@@ -38,8 +38,8 @@ public abstract class StompHandler extends SimpleChannelHandler {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(StompHandler.class);
 
-	private static long localGuaranteedHeartBeat;
-	private static long localExpectedHeartBeat;
+	private long localGuaranteedHeartBeat;
+	private long localExpectedHeartBeat;
 	private Timer localHeartBeartTimer;
 
 	@Override
@@ -109,11 +109,11 @@ public abstract class StompHandler extends SimpleChannelHandler {
 		return false;
 	}
 
-	public static long getLocalGuaranteedHeartBeat() {
+	public long getLocalGuaranteedHeartBeat() {
 		return localGuaranteedHeartBeat;
 	}
 
-	public static long getLocalExpectedHeartBeat() {
+	public long getLocalExpectedHeartBeat() {
 		return localExpectedHeartBeat;
 	}
 
@@ -127,16 +127,15 @@ public abstract class StompHandler extends SimpleChannelHandler {
 	 * @throws IllegalArgumentException
 	 *             if guaranteedHeartBeat or expectedHearBeat are minus to 0
 	 */
-	public static void setHeartBeat(long localGuaranteedHeartBeat, long localExpectedHeartBeat)
+	public void setHeartBeat(long localGuaranteedHeartBeat, long localExpectedHeartBeat)
 			throws IllegalArgumentException {
 		if (localGuaranteedHeartBeat < 0)
 			throw new IllegalArgumentException("Minimum heart-beat guaranteed have to be a positive number");
 		if (localExpectedHeartBeat < 0)
 			throw new IllegalArgumentException("Desired interval between heart-beat have to be a positive number");
 
-		// TODO : Block values when the client is connected
-		StompHandler.localGuaranteedHeartBeat = localGuaranteedHeartBeat;
-		StompHandler.localExpectedHeartBeat = localExpectedHeartBeat;
+		this.localGuaranteedHeartBeat = localGuaranteedHeartBeat;
+		this.localExpectedHeartBeat = localExpectedHeartBeat;
 	}
 
 }

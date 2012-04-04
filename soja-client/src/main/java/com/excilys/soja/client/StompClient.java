@@ -185,4 +185,18 @@ public class StompClient {
 		clientHandler.removeListener(stompClientListener);
 	}
 
+	public long getGuaranteedHeartBeat() {
+		return clientHandler.getLocalGuaranteedHeartBeat();
+	}
+
+	public long getExpectedHeartBeat() {
+		return clientHandler.getLocalExpectedHeartBeat();
+	}
+
+	public void setHeartBeat(long guaranteedHeartBeat, long expectedHeartBeat) throws RuntimeException {
+		if (clientHandler.isLoggedIn())
+			throw new RuntimeException("You can't change heart-beat parameters while the client is connected to server");
+		clientHandler.setHeartBeat(guaranteedHeartBeat, expectedHeartBeat);
+	}
+
 }

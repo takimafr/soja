@@ -62,7 +62,7 @@ public class ServerHandler extends StompHandler {
 	private static final Map<String, AckWaiting> waitingAcks = new HashMap<String, AckWaiting>();
 
 	private final Authentication authentication;
-	private String clientSessionToken;
+	private final Map<Channel, String> clientsSessionToken = new HashMap<Channel, String>();
 
 	public ServerHandler(Authentication authentication) {
 		this.authentication = authentication;
@@ -79,13 +79,13 @@ public class ServerHandler extends StompHandler {
 	@Override
 	public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
 		super.channelDisconnected(ctx, e);
-		clientSessionToken = null;
+		clientsSessionToken.remove(ctx.getChannel());
 		LOGGER.debug("Client session {} closed", ctx.getChannel().getRemoteAddress());
 	}
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-//		LOGGER.warn("Exception throwed by Netty", e.getCause());
+		// LOGGER.warn("Exception throwed by Netty", e.getCause());
 		ctx.getChannel().close().awaitUninterruptibly(2000);
 	}
 
@@ -147,7 +147,7 @@ public class ServerHandler extends StompHandler {
 	public void handleConnect(final Channel channel, Frame frame) throws LoginException, UnsupportedVersionException,
 			AlreadyConnectedException {
 		// Retrieve the session for this client
-		if (clientSessionToken != null) {
+		if (clientsSessionToken.containsKey(channel)) {
 			throw new AlreadyConnectedException("User try to connect but it seems to be already connected");
 		}
 
@@ -160,7 +160,8 @@ public class ServerHandler extends StompHandler {
 
 			try {
 				// Check the credentials of the user
-				clientSessionToken = authentication.connect(login, password);
+				String clientSessionToken = authentication.connect(login, password);
+				clientsSessionToken.put(channel, clientSessionToken);
 
 				// Create the frame to send
 				ConnectedFrame connectedFrame = new ConnectedFrame(StompServer.STOMP_VERSION);
@@ -192,7 +193,7 @@ public class ServerHandler extends StompHandler {
 	 */
 	public void handleDisconnect(Channel channel, Frame frame) {
 		// Remove all subscription for this client's session
-		subscriptionManager.removeSubscriptions(clientSessionToken);
+		subscriptionManager.removeSubscriptions(clientsSessionToken.get(channel));
 
 		sendReceiptIfRequested(channel, frame);
 	}
@@ -206,7 +207,7 @@ public class ServerHandler extends StompHandler {
 		String topic = sendFrame.getHeaderValue(Header.HEADER_DESTINATION);
 
 		synchronized (authentication) {
-			if (!authentication.canSend(clientSessionToken, topic)) {
+			if (!authentication.canSend(clientsSessionToken.get(channel), topic)) {
 				sendError(channel, "Can't send message", "You're not allowed to send a message to the topic" + topic);
 				return;
 			}
@@ -269,6 +270,7 @@ public class ServerHandler extends StompHandler {
 		Long subscriptionId = Long.valueOf(frame.getHeaderValue(Header.HEADER_SUBSCRIPTION_ID));
 		Ack ackMode = Ack.parseAck(frame.getHeaderValue(Header.HEADER_ACK));
 
+		String clientSessionToken = clientsSessionToken.get(channel);
 		if (authentication.canSubscribe(clientSessionToken, topic)) {
 			subscriptionManager.addSubscription(channel, clientSessionToken, subscriptionId, topic, ackMode);
 			sendReceiptIfRequested(channel, frame);
@@ -285,7 +287,7 @@ public class ServerHandler extends StompHandler {
 	public void handleUnsubscribe(Channel channel, Frame frame) {
 		Long subscriptionId = Long.valueOf(frame.getHeaderValue(Header.HEADER_SUBSCRIPTION_ID));
 
-		subscriptionManager.removeSubscription(clientSessionToken, subscriptionId);
+		subscriptionManager.removeSubscription(clientsSessionToken.get(channel), subscriptionId);
 		sendReceiptIfRequested(channel, frame);
 	}
 

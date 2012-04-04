@@ -44,6 +44,7 @@ public class StompServer {
 	private final String hostname;
 	private final int port;
 	private final ServerBootstrap serverBootstrap;
+	private final ServerHandler serverHandler;
 	private Channel acceptorChannel;
 
 	public StompServer(String hostname, int port, final Authentication authentication) {
@@ -51,12 +52,13 @@ public class StompServer {
 		this.port = port;
 		this.serverBootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool(),
 				Executors.newCachedThreadPool()));
+		this.serverHandler = new ServerHandler(authentication);
 
 		this.serverBootstrap.setPipelineFactory(new StompPipelineFactory() {
 			@Override
 			public ChannelPipeline getPipeline() throws Exception {
 				ChannelPipeline pipeline = super.getPipeline();
-				pipeline.addLast("handler", new ServerHandler(authentication));
+				pipeline.addLast("handler", serverHandler);
 				return pipeline;
 			}
 		});
@@ -99,15 +101,15 @@ public class StompServer {
 	}
 
 	public long getLocalGuaranteedHeartBeat() {
-		return ServerHandler.getLocalGuaranteedHeartBeat();
+		return serverHandler.getLocalGuaranteedHeartBeat();
 	}
 
 	public long getLocalExpectedHeartBeat() {
-		return ServerHandler.getLocalExpectedHeartBeat();
+		return serverHandler.getLocalExpectedHeartBeat();
 	}
 
 	public void setHeartBeat(long guaranteedHeartBeat, long expectedHeartBeat) {
-		ServerHandler.setHeartBeat(guaranteedHeartBeat, expectedHeartBeat);
+		serverHandler.setHeartBeat(guaranteedHeartBeat, expectedHeartBeat);
 	}
 
 }

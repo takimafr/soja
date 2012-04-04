@@ -312,11 +312,4 @@ public class ClientHandler extends StompHandler {
 		stompClientListeners.remove(stompClientListener);
 	}
 
-	@Override
-	public boolean startLocalHeartBeat(Channel channel, Frame frame) throws RuntimeException {
-		if (isLoggedIn())
-			throw new RuntimeException("You can't change heart-beat parameters while the client is connected to server");
-		return super.startLocalHeartBeat(channel, frame);
-	}
-
 }
