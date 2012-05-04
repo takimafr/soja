@@ -15,6 +15,7 @@
  */
 package com.excilys.soja.client;
 
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -76,10 +77,10 @@ public class StompClient {
 	 * <p/>
 	 * See {@link StompClient#connect(String, String)}
 	 * 
-	 * @return true if connected to server, false else
+	 * @throws ConnectException
 	 */
-	public boolean connect() {
-		return connect(null, null);
+	public void connect() throws ConnectException {
+		connect(null, null);
 	}
 
 	/**
@@ -89,19 +90,16 @@ public class StompClient {
 	 * 
 	 * @param username
 	 * @param password
-	 * @return true if connected to server, false else
 	 */
-	public boolean connect(String username, String password) {
+	public void connect(String username, String password) throws ConnectException {
 		// Start the connection attempt.
 		channelFuture = clientBootstrap.connect(new InetSocketAddress(hostname, port));
 
 		// Wait until the connection attempt succeeds or fails.
 		channel = channelFuture.awaitUninterruptibly().getChannel();
 		if (!channelFuture.isSuccess()) {
-			LOGGER.error("Client failed to connect to {}:{}", new Object[] { hostname, port, channelFuture.getCause() });
-
 			clientBootstrap.releaseExternalResources();
-			return false;
+			throw new ConnectException("Client failed to connect to " + hostname + ":" + port);
 		}
 
 		if (channel.isConnected()) {
@@ -109,9 +107,7 @@ public class StompClient {
 
 			// When connected, send a CONNECT command
 			clientHandler.connect(channel, SUPPORTED_STOMP_VERSION, hostname, username, password);
-			return true;
 		}
-		return false;
 	}
 
 	/**
