@@ -15,6 +15,20 @@
  */
 package com.excilys.soja.client.handler;
 
+import static com.excilys.soja.core.model.Frame.COMMAND_CONNECTED;
+import static com.excilys.soja.core.model.Frame.COMMAND_HEARBEAT;
+import static com.excilys.soja.core.model.Frame.COMMAND_MESSAGE;
+import static com.excilys.soja.core.model.Frame.COMMAND_RECEIPT;
+import static com.excilys.soja.core.model.Header.HEADER_CONTENT_LENGTH;
+import static com.excilys.soja.core.model.Header.HEADER_CONTENT_TYPE;
+import static com.excilys.soja.core.model.Header.HEADER_DESTINATION;
+import static com.excilys.soja.core.model.Header.HEADER_HEART_BEAT;
+import static com.excilys.soja.core.model.Header.HEADER_MESSAGE;
+import static com.excilys.soja.core.model.Header.HEADER_MESSAGE_ID;
+import static com.excilys.soja.core.model.Header.HEADER_RECEIPT_ID_REQUEST;
+import static com.excilys.soja.core.model.Header.HEADER_RECEIPT_ID_RESPONSE;
+import static com.excilys.soja.core.model.Header.HEADER_SUBSCRIPTION;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -31,10 +45,11 @@ import org.slf4j.LoggerFactory;
 
 import com.excilys.soja.client.events.StompClientListener;
 import com.excilys.soja.client.events.StompMessageStateCallback;
+import com.excilys.soja.client.events.StompTopicListener;
+import com.excilys.soja.client.model.Subscription;
 import com.excilys.soja.core.handler.StompHandler;
 import com.excilys.soja.core.model.Ack;
 import com.excilys.soja.core.model.Frame;
-import com.excilys.soja.core.model.Header;
 import com.excilys.soja.core.model.frame.AckFrame;
 import com.excilys.soja.core.model.frame.ConnectFrame;
 import com.excilys.soja.core.model.frame.SendFrame;
@@ -48,13 +63,12 @@ import com.excilys.soja.core.model.frame.UnsubscribeFrame;
 public class ClientHandler extends StompHandler {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(ClientHandler.class);
-	private static final String[] MESSAGE_USER_HEADERS_FILTER = new String[] { Header.HEADER_DESTINATION,
-			Header.HEADER_SUBSCRIPTION, Header.HEADER_MESSAGE_ID, Header.HEADER_CONTENT_TYPE,
-			Header.HEADER_CONTENT_LENGTH };
+	private static final String[] MESSAGE_USER_HEADERS_FILTER = new String[] { HEADER_DESTINATION, HEADER_SUBSCRIPTION,
+			HEADER_MESSAGE_ID, HEADER_CONTENT_TYPE, HEADER_CONTENT_LENGTH };
 
 	private final List<StompClientListener> stompClientListeners = new ArrayList<StompClientListener>();
 	private final Map<String, StompMessageStateCallback> messageStateCallbacks = new HashMap<String, StompMessageStateCallback>();
-	private final Map<Long, Ack> subscriptionsAckMode = new HashMap<Long, Ack>();
+	private final Map<Long, Subscription> subscriptions = new HashMap<Long, Subscription>();
 
 	private static long messageSent = 0;
 
@@ -74,7 +88,7 @@ public class ClientHandler extends StompHandler {
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-//		LOGGER.warn("Exception throwed by Netty", e.getCause());
+		// LOGGER.warn("Exception throwed by Netty", e.getCause());
 		ctx.getChannel().close().awaitUninterruptibly(2000);
 	}
 
@@ -89,24 +103,24 @@ public class ClientHandler extends StompHandler {
 
 		// ERROR
 		if (frame.isCommand(Frame.COMMAND_ERROR)) {
-			LOGGER.error("STOMP error '{}' : {}", frame.getHeaderValue(Header.HEADER_MESSAGE), frame.getBody());
+			LOGGER.error("STOMP error '{}' : {}", frame.getHeaderValue(HEADER_MESSAGE), frame.getBody());
 		} else {
 			LOGGER.trace("Received frame : {}", frame);
 
 			// CONNECTED
-			if (frame.isCommand(Frame.COMMAND_CONNECTED)) {
+			if (frame.isCommand(COMMAND_CONNECTED)) {
 				handleConnected(channel, frame);
 			}
 			// MESSAGE
-			else if (frame.isCommand(Frame.COMMAND_MESSAGE)) {
+			else if (frame.isCommand(COMMAND_MESSAGE)) {
 				handleMessage(channel, frame);
 			}
 			// RECEIPT
-			else if (frame.isCommand(Frame.COMMAND_RECEIPT)) {
+			else if (frame.isCommand(COMMAND_RECEIPT)) {
 				handleReceipt(channel, frame);
 			}
 			// HEARTBEAT
-			else if (frame.isCommand(Frame.COMMAND_HEARBEAT)) {
+			else if (frame.isCommand(COMMAND_HEARBEAT)) {
 				handleHeartBeat(channel, frame);
 			}
 			// UNKNOWN
@@ -139,10 +153,9 @@ public class ClientHandler extends StompHandler {
 	 * @param frame
 	 */
 	private void handleMessage(final Channel channel, Frame frame) {
-		String topic = frame.getHeaderValue(Header.HEADER_DESTINATION);
 		String message = frame.getBody();
-		String messageId = frame.getHeaderValue(Header.HEADER_MESSAGE_ID);
-		Long subscriptionId = Long.valueOf(frame.getHeaderValue(Header.HEADER_SUBSCRIPTION));
+		String messageId = frame.getHeaderValue(HEADER_MESSAGE_ID);
+		Long subscriptionId = Long.valueOf(frame.getHeaderValue(HEADER_SUBSCRIPTION));
 
 		// Retrieve user keys
 		Map<String, String> userHeaders = new HashMap<String, String>();
@@ -152,14 +165,14 @@ public class ClientHandler extends StompHandler {
 		}
 
 		// Send an ACK to the server if needed
-		Ack ackMode = subscriptionsAckMode.get(subscriptionId);
-		if (ackMode != null && ackMode != Ack.AUTO) {
+		Subscription subscription = subscriptions.get(subscriptionId);
+		if (subscription != null && subscription.getAckMode() != Ack.AUTO) {
 			sendFrame(channel, new AckFrame(messageId, subscriptionId));
 		}
 
 		// Notify all listeners
-		for (StompClientListener listener : stompClientListeners) {
-			listener.receivedMessage(topic, message, userHeaders);
+		for (Subscription subscription2 : subscriptions.values()) {
+			subscription2.getTopicListener().receivedMessage(message, userHeaders);
 		}
 	}
 
@@ -169,7 +182,7 @@ public class ClientHandler extends StompHandler {
 	 * @param frame
 	 */
 	private void handleReceipt(final Channel channel, Frame frame) {
-		String receiptId = frame.getHeaderValue(Header.HEADER_RECEIPT_ID_RESPONSE);
+		String receiptId = frame.getHeaderValue(HEADER_RECEIPT_ID_RESPONSE);
 		if (receiptId != null) {
 			synchronized (messageStateCallbacks) {
 				StompMessageStateCallback messageCallback = messageStateCallbacks.remove(receiptId);
@@ -204,7 +217,7 @@ public class ClientHandler extends StompHandler {
 			synchronized (messageStateCallbacks) {
 				String receiptId = frame.getCommand() + "-" + messageSent++;
 				messageStateCallbacks.put(receiptId, callback);
-				frame.getHeader().put(Header.HEADER_RECEIPT_ID_REQUEST, receiptId);
+				frame.getHeader().put(HEADER_RECEIPT_ID_REQUEST, receiptId);
 			}
 		}
 		sendFrame(channel, frame);
@@ -232,7 +245,7 @@ public class ClientHandler extends StompHandler {
 		ConnectFrame connectFrame = new ConnectFrame(stompVersionSupported, hostname, username, password);
 		if (getLocalGuaranteedHeartBeat() > 0 || getLocalExpectedHeartBeat() > 0) {
 			LOGGER.debug("Heart-beating activated : {}, {}", getLocalGuaranteedHeartBeat(), getLocalExpectedHeartBeat());
-			connectFrame.setHeaderValue(Header.HEADER_HEART_BEAT, getLocalGuaranteedHeartBeat() + ","
+			connectFrame.setHeaderValue(HEADER_HEART_BEAT, getLocalGuaranteedHeartBeat() + ","
 					+ getLocalExpectedHeartBeat());
 		}
 		sendFrame(channel, connectFrame);
@@ -246,7 +259,8 @@ public class ClientHandler extends StompHandler {
 	 * @param ackMode
 	 * @return the subscription id
 	 */
-	public Long subscribe(final Channel channel, String topic, StompMessageStateCallback callback, Ack ackMode) {
+	public Long subscribe(final Channel channel, String topic, StompTopicListener topicListener,
+			StompMessageStateCallback callback, Ack ackMode) {
 		SubscribeFrame frame = new SubscribeFrame(topic);
 		frame.setAck(ackMode);
 
@@ -255,7 +269,9 @@ public class ClientHandler extends StompHandler {
 		}
 
 		Long subscriptionId = frame.getSubscriptionId();
-		subscriptionsAckMode.put(subscriptionId, ackMode);
+
+		Subscription subscription = new Subscription(subscriptionId, ackMode, topic, topicListener);
+		subscriptions.put(subscriptionId, subscription);
 		return subscriptionId;
 	}
 
@@ -266,7 +282,7 @@ public class ClientHandler extends StompHandler {
 	 * @param callback
 	 */
 	public void unsubscribe(final Channel channel, Long subscriptionId, StompMessageStateCallback callback) {
-		subscriptionsAckMode.remove(subscriptionId);
+		subscriptions.remove(subscriptionId);
 
 		Frame frame = new UnsubscribeFrame(subscriptionId);
 		sendFrame(channel, frame, callback);

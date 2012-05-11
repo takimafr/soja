@@ -15,6 +15,27 @@
  */
 package com.excilys.soja.server.handler;
 
+import static com.excilys.soja.core.model.Frame.COMMAND_ACK;
+import static com.excilys.soja.core.model.Frame.COMMAND_CONNECT;
+import static com.excilys.soja.core.model.Frame.COMMAND_DISCONNECT;
+import static com.excilys.soja.core.model.Frame.COMMAND_HEARBEAT;
+import static com.excilys.soja.core.model.Frame.COMMAND_SEND;
+import static com.excilys.soja.core.model.Frame.COMMAND_SUBSCRIBE;
+import static com.excilys.soja.core.model.Frame.COMMAND_UNSUBSCRIBE;
+import static com.excilys.soja.core.model.Header.HEADER_ACCEPT_VERSION;
+import static com.excilys.soja.core.model.Header.HEADER_ACK;
+import static com.excilys.soja.core.model.Header.HEADER_CONTENT_LENGTH;
+import static com.excilys.soja.core.model.Header.HEADER_CONTENT_TYPE;
+import static com.excilys.soja.core.model.Header.HEADER_DESTINATION;
+import static com.excilys.soja.core.model.Header.HEADER_LOGIN;
+import static com.excilys.soja.core.model.Header.HEADER_MESSAGE_ID;
+import static com.excilys.soja.core.model.Header.HEADER_PASSCODE;
+import static com.excilys.soja.core.model.Header.HEADER_RECEIPT_ID_REQUEST;
+import static com.excilys.soja.core.model.Header.HEADER_SUBSCRIPTION;
+import static com.excilys.soja.core.model.Header.HEADER_SUBSCRIPTION_ID;
+import static com.excilys.soja.core.model.Header.HEADER_TRANSACTION;
+import static com.excilys.soja.server.StompServer.STOMP_VERSION;
+
 import java.net.SocketAddress;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,7 +61,6 @@ import com.excilys.soja.core.model.frame.ConnectedFrame;
 import com.excilys.soja.core.model.frame.ErrorFrame;
 import com.excilys.soja.core.model.frame.MessageFrame;
 import com.excilys.soja.core.utils.FrameFactory;
-import com.excilys.soja.server.StompServer;
 import com.excilys.soja.server.authentication.Authentication;
 import com.excilys.soja.server.exception.AlreadyConnectedException;
 import com.excilys.soja.server.exception.UnsupportedVersionException;
@@ -55,9 +75,8 @@ import com.excilys.soja.server.model.Subscription;
 public class ServerHandler extends StompHandler {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(ServerHandler.class);
-	private static final String[] SEND_USER_HEADERS_FILTER = new String[] { Header.HEADER_DESTINATION,
-			Header.HEADER_TRANSACTION, Header.HEADER_CONTENT_TYPE, Header.HEADER_CONTENT_LENGTH,
-			Header.HEADER_RECEIPT_ID_REQUEST };
+	private static final String[] SEND_USER_HEADERS_FILTER = new String[] { HEADER_DESTINATION, HEADER_TRANSACTION,
+			HEADER_CONTENT_TYPE, HEADER_CONTENT_LENGTH, HEADER_RECEIPT_ID_REQUEST };
 	private static final SubscriptionManager subscriptionManager = SubscriptionManager.getInstance();
 	private static final Map<String, AckWaiting> waitingAcks = new HashMap<String, AckWaiting>();
 
@@ -100,7 +119,7 @@ public class ServerHandler extends StompHandler {
 		LOGGER.trace("Received frame : {}", frame);
 
 		// CONNECT
-		if (frame.isCommand(Frame.COMMAND_CONNECT)) {
+		if (frame.isCommand(COMMAND_CONNECT)) {
 			try {
 				handleConnect(channel, frame);
 			} catch (RuntimeException e) {
@@ -109,28 +128,28 @@ public class ServerHandler extends StompHandler {
 			}
 		}
 		// DISCONNECT
-		else if (frame.isCommand(Frame.COMMAND_DISCONNECT)) {
+		else if (frame.isCommand(COMMAND_DISCONNECT)) {
 			handleDisconnect(channel, frame);
 			disconnectClient(event.getChannel());
 		}
 		// SUBSCRIBE
-		else if (frame.isCommand(Frame.COMMAND_SUBSCRIBE)) {
+		else if (frame.isCommand(COMMAND_SUBSCRIBE)) {
 			handleSubscribe(channel, frame);
 		}
 		// UNSUBSCRIBE
-		else if (frame.isCommand(Frame.COMMAND_UNSUBSCRIBE)) {
+		else if (frame.isCommand(COMMAND_UNSUBSCRIBE)) {
 			handleUnsubscribe(channel, frame);
 		}
 		// SEND
-		else if (frame.isCommand(Frame.COMMAND_SEND)) {
+		else if (frame.isCommand(COMMAND_SEND)) {
 			handleSend(channel, frame);
 		}
 		// ACK
-		else if (frame.isCommand(Frame.COMMAND_ACK)) {
+		else if (frame.isCommand(COMMAND_ACK)) {
 			handleAck(channel, frame);
 		}
 		// HEARTBEAT
-		else if (frame.isCommand(Frame.COMMAND_HEARBEAT)) {
+		else if (frame.isCommand(COMMAND_HEARBEAT)) {
 			handleHeartBeat(channel, frame);
 		}
 		// UNKNOWN
@@ -151,12 +170,12 @@ public class ServerHandler extends StompHandler {
 			throw new AlreadyConnectedException("User try to connect but it seems to be already connected");
 		}
 
-		String[] acceptedVersions = frame.getHeader().get(Header.HEADER_ACCEPT_VERSION, "").split(",");
+		String[] acceptedVersions = frame.getHeader().get(HEADER_ACCEPT_VERSION, "").split(",");
 
 		// Check the compatibility of the client and server STOMP version
-		if (ArrayUtils.contains(acceptedVersions, StompServer.STOMP_VERSION)) {
-			String login = frame.getHeaderValue(Header.HEADER_LOGIN);
-			String password = frame.getHeaderValue(Header.HEADER_PASSCODE);
+		if (ArrayUtils.contains(acceptedVersions, STOMP_VERSION)) {
+			String login = frame.getHeaderValue(HEADER_LOGIN);
+			String password = frame.getHeaderValue(HEADER_PASSCODE);
 
 			try {
 				// Check the credentials of the user
@@ -164,7 +183,7 @@ public class ServerHandler extends StompHandler {
 				clientsSessionToken.put(channel, clientSessionToken);
 
 				// Create the frame to send
-				ConnectedFrame connectedFrame = new ConnectedFrame(StompServer.STOMP_VERSION);
+				ConnectedFrame connectedFrame = new ConnectedFrame(STOMP_VERSION);
 
 				// Start the heart-beat scheduler if needed
 				if (startLocalHeartBeat(channel, frame)) {
@@ -178,11 +197,10 @@ public class ServerHandler extends StompHandler {
 				throw new LoginException("Login failed for user '" + login + "'");
 			}
 		} else {
-			sendError(channel, "Supported version doesn't match", "Supported protocol version is "
-					+ StompServer.STOMP_VERSION);
+			sendError(channel, "Supported version doesn't match", "Supported protocol version is " + STOMP_VERSION);
 			throw new UnsupportedVersionException(
-					"The server doesn't support the same STOMP version as the client : server="
-							+ StompServer.STOMP_VERSION + ", client=" + acceptedVersions);
+					"The server doesn't support the same STOMP version as the client : server=" + STOMP_VERSION
+							+ ", client=" + acceptedVersions);
 		}
 	}
 
@@ -204,7 +222,7 @@ public class ServerHandler extends StompHandler {
 	 * @param sendFrame
 	 */
 	public void handleSend(Channel channel, Frame sendFrame) {
-		String topic = sendFrame.getHeaderValue(Header.HEADER_DESTINATION);
+		String topic = sendFrame.getHeaderValue(HEADER_DESTINATION);
 
 		synchronized (authentication) {
 			if (!authentication.canSend(clientsSessionToken.get(channel), topic)) {
@@ -222,7 +240,7 @@ public class ServerHandler extends StompHandler {
 			MessageFrame messageFrame = new MessageFrame(topic, sendFrame.getBody(), null);
 
 			// Add content-type if it was present on the SEND command
-			String contentType = sendFrame.getHeaderValue(Header.HEADER_CONTENT_TYPE);
+			String contentType = sendFrame.getHeaderValue(HEADER_CONTENT_TYPE);
 			if (contentType != null) {
 				messageFrame.setContentType(contentType);
 			}
@@ -243,7 +261,7 @@ public class ServerHandler extends StompHandler {
 					acks.add(subscription.getSubscriptionId());
 				}
 
-				messageFrame.setHeaderValue(Header.HEADER_SUBSCRIPTION, subscription.getSubscriptionId().toString());
+				messageFrame.setHeaderValue(HEADER_SUBSCRIPTION, subscription.getSubscriptionId().toString());
 				sendFrame(subscription.getChannel(), messageFrame);
 			}
 
@@ -266,9 +284,9 @@ public class ServerHandler extends StompHandler {
 	 * @param frame
 	 */
 	public void handleSubscribe(Channel channel, Frame frame) {
-		String topic = frame.getHeaderValue(Header.HEADER_DESTINATION);
-		Long subscriptionId = Long.valueOf(frame.getHeaderValue(Header.HEADER_SUBSCRIPTION_ID));
-		Ack ackMode = Ack.parseAck(frame.getHeaderValue(Header.HEADER_ACK));
+		String topic = frame.getHeaderValue(HEADER_DESTINATION);
+		Long subscriptionId = Long.valueOf(frame.getHeaderValue(HEADER_SUBSCRIPTION_ID));
+		Ack ackMode = Ack.parseAck(frame.getHeaderValue(HEADER_ACK));
 
 		String clientSessionToken = clientsSessionToken.get(channel);
 		if (authentication.canSubscribe(clientSessionToken, topic)) {
@@ -285,7 +303,7 @@ public class ServerHandler extends StompHandler {
 	 * @param frame
 	 */
 	public void handleUnsubscribe(Channel channel, Frame frame) {
-		Long subscriptionId = Long.valueOf(frame.getHeaderValue(Header.HEADER_SUBSCRIPTION_ID));
+		Long subscriptionId = Long.valueOf(frame.getHeaderValue(HEADER_SUBSCRIPTION_ID));
 
 		subscriptionManager.removeSubscription(clientsSessionToken.get(channel), subscriptionId);
 		sendReceiptIfRequested(channel, frame);
@@ -297,8 +315,8 @@ public class ServerHandler extends StompHandler {
 	 * @param frame
 	 */
 	public void handleAck(Channel channel, Frame frame) {
-		Long subscriptionId = Long.valueOf(frame.getHeaderValue(Header.HEADER_SUBSCRIPTION));
-		String messageId = frame.getHeaderValue(Header.HEADER_MESSAGE_ID);
+		Long subscriptionId = Long.valueOf(frame.getHeaderValue(HEADER_SUBSCRIPTION));
+		String messageId = frame.getHeaderValue(HEADER_MESSAGE_ID);
 
 		synchronized (waitingAcks) {
 			// Create a set of subscription which will be used for ACKs requests

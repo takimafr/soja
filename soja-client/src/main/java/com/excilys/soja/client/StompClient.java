@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import com.excilys.soja.client.events.StompClientListener;
 import com.excilys.soja.client.events.StompMessageStateCallback;
+import com.excilys.soja.client.events.StompTopicListener;
 import com.excilys.soja.client.handler.ClientHandler;
 import com.excilys.soja.core.factory.StompPipelineFactory;
 import com.excilys.soja.core.model.Ack;
@@ -144,12 +145,13 @@ public class StompClient {
 		LOGGER.debug("disconnected");
 	}
 
-	public Long subscribe(String topic) {
-		return subscribe(topic, null, Ack.AUTO);
+	public Long subscribe(String topic, StompTopicListener topicListener) {
+		return subscribe(topic, topicListener, null, Ack.AUTO);
 	}
 
-	public Long subscribe(String topic, StompMessageStateCallback callback, Ack ackMode) {
-		return clientHandler.subscribe(channel, topic, callback, ackMode);
+	public Long subscribe(String topic, StompTopicListener topicListener, StompMessageStateCallback callback,
+			Ack ackMode) {
+		return clientHandler.subscribe(channel, topic, topicListener, callback, ackMode);
 	}
 
 	public void unsubscribe(Long subscriptionId) {
