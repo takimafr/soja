@@ -19,6 +19,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.ExceptionEvent;
@@ -69,10 +70,11 @@ public abstract class StompHandler extends SimpleChannelHandler {
 	 * Send a STOMP frame to the remote
 	 * 
 	 * @param frame
+	 * @return the {@link ChannelFuture} which will be notified when the write request succeeds or fails
 	 */
-	public void sendFrame(Channel channel, Frame frame) {
-		LOGGER.debug("Sending : {}", frame);
-		channel.write(frame);
+	public ChannelFuture sendFrame(Channel channel, Frame frame) {
+		LOGGER.trace("Sending : {}", frame);
+		return channel.write(frame);
 	}
 
 	/**
