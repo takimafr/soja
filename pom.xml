@@ -13,11 +13,16 @@
 		<!-- Maven plugins -->
 		<maven-compiler-plugin.version>2.3.2</maven-compiler-plugin.version>
 		<maven-assembly-plugin.version>2.3</maven-assembly-plugin.version>
+		<maven-release-plugin.version>2.3</maven-release-plugin.version>
 
 		<netty.version>3.3.1.Final</netty.version>
 		<commons-lang.version>2.6</commons-lang.version>
 		<logback.version>1.0.0</logback.version>
 	</properties>
+
+	<scm>
+		<developerConnection>scm:git|ssh://git@github.com/excilys/soja.git</developerConnection>
+	</scm>
 
 	<developers>
 		<developer>
@@ -84,6 +89,13 @@
 						</execution>
 					</executions>
 				</plugin>
+
+				<plugin>
+					<!-- Use release:prepare then release:deploy (or release:rollback to cancel) -->
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-release-plugin</artifactId>
+					<version>${maven-release-plugin.version}</version>
+				</plugin>
 			</plugins>
 		</pluginManagement>
 
@@ -117,6 +129,12 @@
 
 			<plugin>
 				<artifactId>maven-assembly-plugin</artifactId>
+			</plugin>
+
+			<!-- Use release:prepare then release:deploy (or release:rollback to cancel) -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-release-plugin</artifactId>
 			</plugin>
 		</plugins>
 	</build>
