@@ -154,6 +154,7 @@ public class ClientHandler extends StompHandler {
 	 */
 	private void handleMessage(final Channel channel, Frame frame) {
 		String message = frame.getBody();
+		String topic = frame.getHeaderValue(HEADER_DESTINATION);
 		String messageId = frame.getHeaderValue(HEADER_MESSAGE_ID);
 		Long subscriptionId = Long.valueOf(frame.getHeaderValue(HEADER_SUBSCRIPTION));
 
@@ -172,7 +173,9 @@ public class ClientHandler extends StompHandler {
 
 		// Notify all listeners
 		for (Subscription subscription2 : subscriptions.values()) {
-			subscription2.getTopicListener().receivedMessage(message, userHeaders);
+			if (subscription2.getTopic().equals(topic)) {
+				subscription2.getTopicListener().receivedMessage(message, userHeaders);
+			}
 		}
 	}
 
