@@ -69,7 +69,7 @@ public class FrameParser {
 		String headerLine = null;
 		while (scanner.hasNextLine()) {
 			headerLine = scanner.nextLine();
-			if (headerLine.length() == 0) {
+			if (headerLine.isEmpty()) {
 				break;
 			}
 
