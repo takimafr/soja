@@ -111,7 +111,7 @@ public class SubscriptionManager {
 			Subscription removedSubscription = clientSubscriptions.remove(subscriptionId);
 			if (removedSubscription != null) {
 				// If this client has no more subscriptions, remove his subscription Map to free memory
-				if (clientSubscriptions.size() == 0) {
+				if (clientSubscriptions.isEmpty()) {
 					clientsSubscriptions.remove(clientSessionToken);
 				}
 
