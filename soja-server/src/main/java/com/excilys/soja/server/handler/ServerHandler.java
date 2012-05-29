@@ -324,7 +324,7 @@ public class ServerHandler extends StompHandler {
 			if (waitingAck != null) {
 				waitingAck.removeSubscriptionId(subscriptionId);
 
-				if (waitingAck.getSubscriptionIds().size() == 0) {
+				if (waitingAck.getSubscriptionIds().isEmpty()) {
 					sendReceiptIfRequested(waitingAck.getChannel(), waitingAck.getSendFrame());
 					waitingAcks.remove(messageId);
 				}
