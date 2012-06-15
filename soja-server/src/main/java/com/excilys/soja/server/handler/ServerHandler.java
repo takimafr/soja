@@ -104,7 +104,7 @@ public class ServerHandler extends StompHandler {
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-		// LOGGER.warn("Exception throwed by Netty", e.getCause());
+		LOGGER.debug("Exception thrown by Netty", e.getCause());
 		ctx.getChannel().close().awaitUninterruptibly(2000);
 	}
 

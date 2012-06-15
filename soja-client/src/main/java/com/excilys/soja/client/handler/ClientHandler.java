@@ -82,13 +82,17 @@ public class ClientHandler extends StompHandler {
 
 		// Notify all listeners
 		for (StompClientListener listener : stompClientListeners) {
-			listener.disconnected();
+			try {
+				listener.disconnected();
+			} catch (Exception err) {
+				LOGGER.error("Disconnect listener thrown an exception", err);
+			}
 		}
 	}
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-		// LOGGER.warn("Exception throwed by Netty", e.getCause());
+		LOGGER.debug("Exception thrown by Netty", e.getCause());
 		ctx.getChannel().close().awaitUninterruptibly(2000);
 	}
 
@@ -143,7 +147,11 @@ public class ClientHandler extends StompHandler {
 
 		// Notify all listeners
 		for (StompClientListener listener : stompClientListeners) {
-			listener.connected();
+			try {
+				listener.connected();
+			} catch (Exception err) {
+				LOGGER.error("Disconnect listener thrown an exception", err);
+			}
 		}
 	}
 
@@ -174,7 +182,11 @@ public class ClientHandler extends StompHandler {
 		// Notify all listeners
 		for (Subscription subscription2 : subscriptions.values()) {
 			if (subscription2.getTopic().equals(topic)) {
-				subscription2.getTopicListener().receivedMessage(message, userHeaders);
+				try {
+					subscription2.getTopicListener().receivedMessage(message, userHeaders);
+				} catch (Exception err) {
+					LOGGER.error("ReceivedMessage listener (topic {}) thrown an exception", topic, err);
+				}
 			}
 		}
 	}
@@ -190,7 +202,11 @@ public class ClientHandler extends StompHandler {
 			synchronized (messageStateCallbacks) {
 				StompMessageStateCallback messageCallback = messageStateCallbacks.remove(receiptId);
 				if (messageCallback != null) {
-					messageCallback.receiptReceived();
+					try {
+						messageCallback.receiptReceived();
+					} catch (Exception err) {
+						LOGGER.error("ReceiptReceived listener thrown an exception", err);
+					}
 				}
 			}
 		}
@@ -211,7 +227,11 @@ public class ClientHandler extends StompHandler {
 					+ " command";
 
 			for (StompClientListener stompClientListener : stompClientListeners) {
-				stompClientListener.receivedError(shortMessage, description);
+				try {
+					stompClientListener.receivedError(shortMessage, description);
+				} catch (Exception err) {
+					LOGGER.error("ReceivedError listener thrown an exception", err);
+				}
 			}
 			return false;
 		}
