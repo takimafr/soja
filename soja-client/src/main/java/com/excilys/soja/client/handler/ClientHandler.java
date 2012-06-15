@@ -312,7 +312,8 @@ public class ClientHandler extends StompHandler {
 	}
 
 	/**
-	 * Send a SEND command frame.
+	 * Send a SEND command frame. If the message contains a null charactere, content-type header will automaticaly
+	 * added, so as the content-length.
 	 * 
 	 * @param topic
 	 * @param message
@@ -321,7 +322,13 @@ public class ClientHandler extends StompHandler {
 	 */
 	public void send(final Channel channel, String topic, String message, Map<String, String> additionalHeaders,
 			StompMessageStateCallback callback) {
-		Frame frame = new SendFrame(topic, message);
+		SendFrame frame = new SendFrame(topic, message);
+
+		if (message.indexOf(Frame.EOL_FRAME) != -1) {
+			// TODO: Try to auto-detect content-type, and allow specify it
+			frame.setContentType("application/octet-stream");
+		}
+
 		if (additionalHeaders != null) {
 			frame.getHeader().putAll(additionalHeaders);
 		}

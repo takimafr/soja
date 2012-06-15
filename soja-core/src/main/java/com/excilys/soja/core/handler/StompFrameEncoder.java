@@ -13,7 +13,14 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package com.excilys.soja.core.utils;
+package com.excilys.soja.core.handler;
+
+import java.nio.charset.Charset;
+
+import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.handler.codec.oneone.OneToOneEncoder;
 
 import com.excilys.soja.core.model.Frame;
 import com.excilys.soja.core.model.Header;
@@ -22,11 +29,15 @@ import com.excilys.soja.core.model.Header;
  * @author dvilleneuve
  * 
  */
-public class FrameSerializer {
+public class StompFrameEncoder extends OneToOneEncoder {
 
-	public static String serializeFrame(Frame frame) {
-		if (frame == null)
-			return null;
+	@Override
+	protected Object encode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
+		if (!(msg instanceof Frame)) {
+			return msg;
+		}
+
+		Frame frame = (Frame) msg;
 
 		// COMMAND
 		StringBuilder formatedFrame = new StringBuilder();
@@ -56,7 +67,8 @@ public class FrameSerializer {
 		}
 
 		formatedFrame.append(Frame.EOL_FRAME);
-		return formatedFrame.toString();
+		String frameString = formatedFrame.toString();
+		return ChannelBuffers.copiedBuffer((String) frameString, Charset.forName("UTF-8"));
 	}
 
 	public static String escapeHeaderValue(String headerValue) {
@@ -66,5 +78,4 @@ public class FrameSerializer {
 
 		return headerValue;
 	}
-
 }

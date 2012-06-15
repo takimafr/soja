@@ -45,7 +45,7 @@ public class Frame {
 	public static final char EOL_FRAME = '\000';
 
 	private String command;
-	private Header header;
+	private Header header = new Header();
 	private String body;
 
 	public Frame() {

@@ -18,12 +18,9 @@ package com.excilys.soja.core.factory;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
-import org.jboss.netty.handler.codec.frame.DelimiterBasedFrameDecoder;
-import org.jboss.netty.handler.codec.frame.Delimiters;
 
-import com.excilys.soja.core.handler.FrameDecoder;
-import com.excilys.soja.core.handler.FrameEncoder;
-
+import com.excilys.soja.core.handler.StompFrameEncoder;
+import com.excilys.soja.core.handler.StompFrameDecoder;
 
 /**
  * @author dvilleneuve
@@ -36,10 +33,8 @@ public class StompPipelineFactory implements ChannelPipelineFactory {
 		ChannelPipeline pipeline = Channels.pipeline();
 
 		// Add the text line codec combination first,
-		// TODO: A null delimiter will split a frame with a null character in a body stream...
-		pipeline.addLast("framer", new DelimiterBasedFrameDecoder(Integer.MAX_VALUE, Delimiters.nulDelimiter()));
-		pipeline.addLast("frameDecoder", new FrameDecoder());
-		pipeline.addLast("frameEncoder", new FrameEncoder());
+		pipeline.addLast("frameDecoder", new StompFrameDecoder());
+		pipeline.addLast("frameEncoder", new StompFrameEncoder());
 
 		return pipeline;
 	}
