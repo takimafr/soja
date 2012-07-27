@@ -29,12 +29,12 @@ public class ConnectedFrame extends Frame {
 	}
 
 	public ConnectedFrame setSession(String session) {
-		getHeader().set(Header.HEADER_SESSION, session);
+		setHeaderValue(Header.HEADER_SESSION, session);
 		return this;
 	}
 
 	public ConnectedFrame setServerName(String serverName) {
-		getHeader().set(Header.HEADER_SERVER, serverName);
+		setHeaderValue(Header.HEADER_SERVER, serverName);
 		return this;
 	}
 

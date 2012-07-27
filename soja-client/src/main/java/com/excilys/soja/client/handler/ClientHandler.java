@@ -22,7 +22,6 @@ import static com.excilys.soja.core.model.Frame.COMMAND_RECEIPT;
 import static com.excilys.soja.core.model.Header.HEADER_CONTENT_LENGTH;
 import static com.excilys.soja.core.model.Header.HEADER_CONTENT_TYPE;
 import static com.excilys.soja.core.model.Header.HEADER_DESTINATION;
-import static com.excilys.soja.core.model.Header.HEADER_HEART_BEAT;
 import static com.excilys.soja.core.model.Header.HEADER_MESSAGE;
 import static com.excilys.soja.core.model.Header.HEADER_MESSAGE_ID;
 import static com.excilys.soja.core.model.Header.HEADER_RECEIPT_ID_REQUEST;
@@ -262,8 +261,8 @@ public class ClientHandler extends StompHandler {
 		ConnectFrame connectFrame = new ConnectFrame(stompVersionSupported, hostname, username, password);
 		if (getLocalGuaranteedHeartBeat() > 0 || getLocalExpectedHeartBeat() > 0) {
 			LOGGER.debug("Heart-beating activated : {}, {}", getLocalGuaranteedHeartBeat(), getLocalExpectedHeartBeat());
-			connectFrame.setHeaderValue(HEADER_HEART_BEAT, getLocalGuaranteedHeartBeat() + ","
-					+ getLocalExpectedHeartBeat());
+
+			connectFrame.setHeartBeat(getLocalGuaranteedHeartBeat(), getLocalExpectedHeartBeat());
 		}
 		sendFrame(channel, connectFrame);
 	}

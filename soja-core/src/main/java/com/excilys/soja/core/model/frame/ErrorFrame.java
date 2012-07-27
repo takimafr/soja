@@ -35,13 +35,13 @@ public class ErrorFrame extends Frame {
 
 	public ErrorFrame setDescription(String description, String contentType) {
 		setDescription(description);
-		getHeader().set(Header.HEADER_CONTENT_TYPE, contentType);
-		getHeader().set(Header.HEADER_CONTENT_LENGTH, String.valueOf(description.length()));
+		setHeaderValue(Header.HEADER_CONTENT_TYPE, contentType);
+		setHeaderValue(Header.HEADER_CONTENT_LENGTH, String.valueOf(description.length()));
 		return this;
 	}
 
 	public ErrorFrame setReceipId(String receipId) {
-		getHeader().set(Header.HEADER_RECEIPT_ID_RESPONSE, receipId);
+		setHeaderValue(Header.HEADER_RECEIPT_ID_RESPONSE, receipId);
 		return this;
 	}
 

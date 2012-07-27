@@ -15,6 +15,8 @@
  */
 package com.excilys.soja.core.model.frame;
 
+import static com.excilys.soja.core.model.Header.HEADER_HEART_BEAT;
+
 import com.excilys.soja.core.model.Frame;
 import com.excilys.soja.core.model.Header;
 
@@ -25,13 +27,18 @@ import com.excilys.soja.core.model.Header;
 public class ConnectFrame extends Frame {
 
 	public ConnectFrame(String acceptVersion, String hostname) {
-		super(Frame.COMMAND_CONNECT, new Header().set(Header.HEADER_ACCEPT_VERSION, acceptVersion).set(Header.HEADER_HOST, hostname), null);
+		super(Frame.COMMAND_CONNECT, new Header().set(Header.HEADER_ACCEPT_VERSION, acceptVersion).set(
+				Header.HEADER_HOST, hostname), null);
 	}
 
 	public ConnectFrame(String acceptVersion, String hostname, String login, String password) {
 		this(acceptVersion, hostname);
-		getHeader().set(Header.HEADER_LOGIN, login);
-		getHeader().set(Header.HEADER_PASSCODE, password);
+		setHeaderValue(Header.HEADER_LOGIN, login);
+		setHeaderValue(Header.HEADER_PASSCODE, password);
+	}
+
+	public void setHeartBeat(long localGuaranteedHeartBeat, long localExpectedHeartBeat) {
+		setHeaderValue(HEADER_HEART_BEAT, localGuaranteedHeartBeat + "," + localExpectedHeartBeat);
 	}
 
 }

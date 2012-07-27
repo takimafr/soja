@@ -33,7 +33,7 @@ public class SubscribeFrame extends Frame {
 	}
 
 	public void setAck(Ack ack) {
-		getHeader().set(Header.HEADER_ACK, ack.toString());
+		setHeaderValue(Header.HEADER_ACK, ack.toString());
 	}
 
 	public long getSubscriptionId() {

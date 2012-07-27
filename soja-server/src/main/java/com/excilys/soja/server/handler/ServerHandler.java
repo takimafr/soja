@@ -103,8 +103,6 @@ public class ServerHandler extends StompHandler {
 	public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
 		super.channelDisconnected(ctx, e);
 		clientsSessionToken.remove(ctx.getChannel());
-		LOGGER.debug("Client session {} closed", ctx.getChannel().getRemoteAddress());
-
 		fireDisconnectedListeners(ctx.getChannel());
 	}
 

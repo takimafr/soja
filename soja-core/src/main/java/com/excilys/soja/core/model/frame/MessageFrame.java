@@ -33,8 +33,8 @@ public class MessageFrame extends Frame {
 	}
 
 	public void setContentType(String contentType) {
-		getHeader().set(Header.HEADER_CONTENT_TYPE, contentType);
-		getHeader().set(Header.HEADER_CONTENT_LENGTH, String.valueOf(getBody().length()));
+		setHeaderValue(Header.HEADER_CONTENT_TYPE, contentType);
+		setHeaderValue(Header.HEADER_CONTENT_LENGTH, String.valueOf(getBody().length()));
 	}
 
 	public String getMessageId() {
