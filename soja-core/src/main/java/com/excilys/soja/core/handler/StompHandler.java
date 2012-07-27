@@ -148,4 +148,8 @@ public abstract class StompHandler extends SimpleChannelHandler {
 		this.localExpectedHeartBeat = localExpectedHeartBeat;
 	}
 
+	protected abstract void fireConnectedListeners(Channel channel);
+
+	protected abstract void fireDisconnectedListeners(Channel channel);
+
 }

@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import com.excilys.soja.core.factory.StompPipelineFactory;
 import com.excilys.soja.server.authentication.Authentication;
+import com.excilys.soja.server.events.StompServerListener;
 import com.excilys.soja.server.handler.ServerHandler;
 
 /**
@@ -67,7 +68,7 @@ public class StompServer {
 	}
 
 	/**
-	 * Start the server and listen to new connection requests.
+	 * Start the server and listen to new client connection requests.
 	 */
 	public boolean start() {
 		acceptorChannel = serverBootstrap.bind(new InetSocketAddress(hostname, port));
@@ -81,16 +82,20 @@ public class StompServer {
 	}
 
 	/**
-	 * Stop the server
+	 * Disconnect all clients and stop the server
 	 */
 	public void stop() {
 		LOGGER.debug("Stopping server...");
 
+		// Stop the acceptord channel
 		if (acceptorChannel != null && acceptorChannel.isOpen()) {
 			// Close the connection. Make sure the close operation ends because
 			// all I/O operations are asynchronous in Netty.
 			acceptorChannel.close().awaitUninterruptibly();
 		}
+
+		// Disconnect all clients
+		serverHandler.disconnectAllClients();
 
 		if (serverBootstrap != null) {
 			// Shut down all thread pools to exit.
@@ -98,6 +103,14 @@ public class StompServer {
 		}
 
 		LOGGER.debug("Server stopped");
+	}
+
+	public void addListener(StompServerListener stompServerListener) {
+		serverHandler.addListener(stompServerListener);
+	}
+
+	public void removeListener(StompServerListener stompServerListener) {
+		serverHandler.removeListener(stompServerListener);
 	}
 
 	public long getLocalGuaranteedHeartBeat() {
@@ -108,6 +121,16 @@ public class StompServer {
 		return serverHandler.getLocalExpectedHeartBeat();
 	}
 
+	/**
+	 * Configure the head-beat system.
+	 * 
+	 * <p/>
+	 * <b>NOTE :</b> This can only be set while the client is not connected yet.
+	 * 
+	 * @param guaranteedHeartBeat
+	 * @param expectedHeartBeat
+	 * @throws RuntimeException
+	 */
 	public void setHeartBeat(long guaranteedHeartBeat, long expectedHeartBeat) {
 		serverHandler.setHeartBeat(guaranteedHeartBeat, expectedHeartBeat);
 	}

@@ -83,19 +83,12 @@ public class ClientHandler extends StompHandler {
 		super.channelDisconnected(ctx, e);
 		LOGGER.debug("Client channel {} closed", ctx.getChannel().getRemoteAddress());
 
-		// Notify all listeners
-		for (StompClientListener listener : stompClientListeners) {
-			try {
-				listener.disconnected();
-			} catch (Exception err) {
-				LOGGER.error("Disconnect listener thrown an exception", err);
-			}
-		}
+		fireDisconnectedListeners(ctx.getChannel());
 	}
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-		LOGGER.debug("Exception thrown by Netty", e.getCause().getMessage());
+		LOGGER.debug("Exception thrown by Netty : {}", e.getCause().getMessage());
 		ctx.getChannel().close().awaitUninterruptibly(2000);
 	}
 
@@ -148,14 +141,7 @@ public class ClientHandler extends StompHandler {
 
 		loggedIn = true;
 
-		// Notify all listeners
-		for (StompClientListener listener : stompClientListeners) {
-			try {
-				listener.connected();
-			} catch (Exception err) {
-				LOGGER.error("Disconnect listener thrown an exception", err);
-			}
-		}
+		fireConnectedListeners(channel);
 	}
 
 	/**
@@ -373,6 +359,26 @@ public class ClientHandler extends StompHandler {
 
 	public void removeListener(StompClientListener stompClientListener) {
 		stompClientListeners.remove(stompClientListener);
+	}
+
+	protected void fireConnectedListeners(Channel channel) {
+		for (StompClientListener stompClientListener : stompClientListeners) {
+			try {
+				stompClientListener.connected();
+			} catch (Exception err) {
+				LOGGER.error("Connect listener thrown an exception", err);
+			}
+		}
+	}
+
+	protected void fireDisconnectedListeners(Channel channel) {
+		for (StompClientListener stompClientListener : stompClientListeners) {
+			try {
+				stompClientListener.disconnected();
+			} catch (Exception err) {
+				LOGGER.error("Disconnect listener thrown an exception", err);
+			}
+		}
 	}
 
 }

@@ -36,9 +36,10 @@ import static com.excilys.soja.core.model.Header.HEADER_SUBSCRIPTION_ID;
 import static com.excilys.soja.core.model.Header.HEADER_TRANSACTION;
 import static com.excilys.soja.server.StompServer.STOMP_VERSION;
 
-import java.net.SocketAddress;
 import java.net.SocketException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -63,6 +64,7 @@ import com.excilys.soja.core.model.frame.ErrorFrame;
 import com.excilys.soja.core.model.frame.MessageFrame;
 import com.excilys.soja.core.utils.FrameFactory;
 import com.excilys.soja.server.authentication.Authentication;
+import com.excilys.soja.server.events.StompServerListener;
 import com.excilys.soja.server.exception.AlreadyConnectedException;
 import com.excilys.soja.server.exception.UnsupportedVersionException;
 import com.excilys.soja.server.manager.SubscriptionManager;
@@ -81,6 +83,7 @@ public class ServerHandler extends StompHandler {
 	private static final SubscriptionManager subscriptionManager = SubscriptionManager.getInstance();
 	private static final Map<String, AckWaiting> waitingAcks = new HashMap<String, AckWaiting>();
 
+	private final List<StompServerListener> stompServerListeners = new ArrayList<StompServerListener>();
 	private final Authentication authentication;
 	private final Map<Channel, String> clientsSessionToken = new HashMap<Channel, String>();
 
@@ -101,11 +104,13 @@ public class ServerHandler extends StompHandler {
 		super.channelDisconnected(ctx, e);
 		clientsSessionToken.remove(ctx.getChannel());
 		LOGGER.debug("Client session {} closed", ctx.getChannel().getRemoteAddress());
+
+		fireDisconnectedListeners(ctx.getChannel());
 	}
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-		LOGGER.debug("Exception thrown by Netty", e.getCause());
+		LOGGER.debug("Exception thrown by Netty : {}", e.getCause().getMessage());
 		ctx.getChannel().close().awaitUninterruptibly(2000);
 	}
 
@@ -194,6 +199,8 @@ public class ServerHandler extends StompHandler {
 				}
 
 				sendFrame(channel, connectedFrame);
+
+				fireConnectedListeners(channel);
 			} catch (LoginException e) {
 				sendError(channel, "Bad credentials", "Username or passcode incorrect");
 				throw new LoginException("Login failed for user '" + login + "'");
@@ -217,6 +224,8 @@ public class ServerHandler extends StompHandler {
 		subscriptionManager.removeSubscriptions(clientsSessionToken.get(channel));
 
 		sendReceiptIfRequested(channel, frame);
+
+		fireDisconnectedListeners(channel);
 	}
 
 	/**
@@ -380,12 +389,40 @@ public class ServerHandler extends StompHandler {
 		return false;
 	}
 
+	public void disconnectAllClients() {
+		Set<Channel> channelClientsSet = clientsSessionToken.keySet();
+		for (Channel channelClient : channelClientsSet) {
+			disconnectClient(channelClient);
+		}
+	}
+
 	private void disconnectClient(Channel channel) {
-		SocketAddress remoteAddress = channel.getRemoteAddress();
-		LOGGER.debug("Disconnecting client session {}...", remoteAddress);
+		LOGGER.debug("Disconnecting client session {}...", channel.getRemoteAddress());
 
 		channel.close().awaitUninterruptibly(15000);
 		channel.unbind().awaitUninterruptibly(15000);
+
+		fireDisconnectedListeners(channel);
+	}
+
+	public void addListener(StompServerListener stompServerListener) {
+		stompServerListeners.add(stompServerListener);
+	}
+
+	public void removeListener(StompServerListener stompServerListener) {
+		stompServerListeners.remove(stompServerListener);
+	}
+
+	protected void fireConnectedListeners(Channel channel) {
+		for (StompServerListener stompServerListener : stompServerListeners) {
+			stompServerListener.clientConnected(channel.getRemoteAddress());
+		}
+	}
+
+	protected void fireDisconnectedListeners(Channel channel) {
+		for (StompServerListener stompServerListener : stompServerListeners) {
+			stompServerListener.clientDisconnected(channel.getRemoteAddress());
+		}
 	}
 
 }
