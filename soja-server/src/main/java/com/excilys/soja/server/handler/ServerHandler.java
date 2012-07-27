@@ -58,7 +58,6 @@ import org.slf4j.LoggerFactory;
 import com.excilys.soja.core.handler.StompHandler;
 import com.excilys.soja.core.model.Ack;
 import com.excilys.soja.core.model.Frame;
-import com.excilys.soja.core.model.Header;
 import com.excilys.soja.core.model.frame.ConnectedFrame;
 import com.excilys.soja.core.model.frame.ErrorFrame;
 import com.excilys.soja.core.model.frame.MessageFrame;
@@ -89,26 +88,23 @@ public class ServerHandler extends StompHandler {
 
 	public ServerHandler(Authentication authentication) {
 		this.authentication = authentication;
-
-		LOGGER.debug("create ServerHandler");
 	}
 
 	@Override
 	public void channelConnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
 		super.channelConnected(ctx, e);
-		LOGGER.debug("Client {} connected. Starting client session", ctx.getChannel().getRemoteAddress());
+		LOGGER.debug("Channel connected to {}. Starting client session", ctx.getChannel().getRemoteAddress());
 	}
 
 	@Override
 	public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
 		super.channelDisconnected(ctx, e);
-		clientsSessionToken.remove(ctx.getChannel());
-		fireDisconnectedListeners(ctx.getChannel());
+		handleDisconnectingClient(ctx.getChannel());
 	}
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-		LOGGER.debug("Exception thrown by Netty : {}", e.getCause().getMessage());
+		LOGGER.debug("Exception thrown by Netty. Closing channel : {}", e.getCause().getMessage());
 		ctx.getChannel().close().awaitUninterruptibly(2000);
 	}
 
@@ -178,36 +174,37 @@ public class ServerHandler extends StompHandler {
 		String[] acceptedVersions = frame.getHeader().get(HEADER_ACCEPT_VERSION, "").split(",");
 
 		// Check the compatibility of the client and server STOMP version
-		if (ArrayUtils.contains(acceptedVersions, STOMP_VERSION)) {
-			String login = frame.getHeaderValue(HEADER_LOGIN);
-			String password = frame.getHeaderValue(HEADER_PASSCODE);
-
-			try {
-				// Check the credentials of the user
-				String clientSessionToken = authentication.connect(login, password);
-				clientsSessionToken.put(channel, clientSessionToken);
-
-				// Create the frame to send
-				ConnectedFrame connectedFrame = new ConnectedFrame(STOMP_VERSION);
-
-				// Start the heart-beat scheduler if needed
-				if (startLocalHeartBeat(channel, frame)) {
-					connectedFrame.setHeaderValue(Header.HEADER_HEART_BEAT, getLocalGuaranteedHeartBeat() + ","
-							+ getLocalExpectedHeartBeat());
-				}
-
-				sendFrame(channel, connectedFrame);
-
-				fireConnectedListeners(channel);
-			} catch (LoginException e) {
-				sendError(channel, "Bad credentials", "Username or passcode incorrect");
-				throw new LoginException("Login failed for user '" + login + "'");
-			}
-		} else {
+		if (!ArrayUtils.contains(acceptedVersions, STOMP_VERSION)) {
 			sendError(channel, "Supported version doesn't match", "Supported protocol version is " + STOMP_VERSION);
 			throw new UnsupportedVersionException(
 					"The server doesn't support the same STOMP version as the client : server=" + STOMP_VERSION
 							+ ", client=" + acceptedVersions);
+		}
+
+		String login = frame.getHeaderValue(HEADER_LOGIN);
+		String password = frame.getHeaderValue(HEADER_PASSCODE);
+
+		try {
+			LOGGER.trace("Check credentials for {}", login);
+
+			// Check the credentials of the user
+			String clientSessionToken = authentication.connect(login, password);
+			clientsSessionToken.put(channel, clientSessionToken);
+
+			// Create the frame to send
+			ConnectedFrame connectedFrame = new ConnectedFrame(STOMP_VERSION);
+
+			// Start the heart-beat scheduler if needed
+			if (startLocalHeartBeat(channel, frame)) {
+				connectedFrame.setHeartBeat(getLocalGuaranteedHeartBeat(), getLocalExpectedHeartBeat());
+			}
+
+			sendFrame(channel, connectedFrame);
+
+			fireConnectedListeners(channel);
+		} catch (LoginException e) {
+			sendError(channel, "Bad credentials", "Username or passcode incorrect");
+			throw e;
 		}
 	}
 
@@ -218,12 +215,9 @@ public class ServerHandler extends StompHandler {
 	 * @throws SocketException
 	 */
 	public void handleDisconnect(Channel channel, Frame frame) throws SocketException {
-		// Remove all subscription for this client's session
-		subscriptionManager.removeSubscriptions(clientsSessionToken.get(channel));
-
 		sendReceiptIfRequested(channel, frame);
 
-		fireDisconnectedListeners(channel);
+		handleDisconnectingClient(channel);
 	}
 
 	/**
@@ -247,42 +241,43 @@ public class ServerHandler extends StompHandler {
 		subscriptions = subscriptionManager.retrieveSubscriptionsByTopic(topic);
 
 		if (subscriptions != null && subscriptions.size() > 0) {
-			// Construct the MESSAGE frame
-			MessageFrame messageFrame = new MessageFrame(topic, sendFrame.getBody(), null);
+			sendReceiptIfRequested(channel, sendFrame);
+			return;
+		}
 
-			// Add content-type if it was present on the SEND command
-			String contentType = sendFrame.getHeaderValue(HEADER_CONTENT_TYPE);
-			if (contentType != null) {
-				messageFrame.setContentType(contentType);
+		// Construct the MESSAGE frame
+		MessageFrame messageFrame = new MessageFrame(topic, sendFrame.getBody(), null);
+
+		// Add content-type if it was present on the SEND command
+		String contentType = sendFrame.getHeaderValue(HEADER_CONTENT_TYPE);
+		if (contentType != null) {
+			messageFrame.setContentType(contentType);
+		}
+
+		// Add user keys if there was some on the SEND command
+		Set<String> userKeys = sendFrame.getHeader().allKeys(SEND_USER_HEADERS_FILTER);
+		for (String userKey : userKeys) {
+			messageFrame.getHeader().put(userKey, sendFrame.getHeaderValue(userKey));
+		}
+
+		// Create a set of subscription which will be used for ACKs requests
+		TreeSet<Long> acks = new TreeSet<Long>();
+
+		// Send the message frame to each subscriber
+		for (Subscription subscription : subscriptions) {
+			// If an ack is needed for this client, add the subscription to the ACKs queue.
+			if (subscription.getAckMode() != Ack.AUTO) {
+				acks.add(subscription.getSubscriptionId());
 			}
 
-			// Add user keys if there was some on the SEND command
-			Set<String> userKeys = sendFrame.getHeader().allKeys(SEND_USER_HEADERS_FILTER);
-			for (String userKey : userKeys) {
-				messageFrame.getHeader().put(userKey, sendFrame.getHeaderValue(userKey));
-			}
+			messageFrame.setHeaderValue(HEADER_SUBSCRIPTION, subscription.getSubscriptionId().toString());
+			sendFrame(subscription.getChannel(), messageFrame);
+		}
 
-			// Create a set of subscription which will be used for ACKs requests
-			TreeSet<Long> acks = new TreeSet<Long>();
-
-			// Send the message frame to each subscriber
-			for (Subscription subscription : subscriptions) {
-				// If an ack is needed for this client, add the subscription to the ACKs queue.
-				if (subscription.getAckMode() != Ack.AUTO) {
-					acks.add(subscription.getSubscriptionId());
-				}
-
-				messageFrame.setHeaderValue(HEADER_SUBSCRIPTION, subscription.getSubscriptionId().toString());
-				sendFrame(subscription.getChannel(), messageFrame);
-			}
-
-			if (acks.size() > 0) {
-				synchronized (waitingAcks) {
-					String messageId = messageFrame.getMessageId();
-					waitingAcks.put(messageId, new AckWaiting(channel, acks, sendFrame));
-				}
-			} else {
-				sendReceiptIfRequested(channel, sendFrame);
+		if (acks.size() > 0) {
+			synchronized (waitingAcks) {
+				String messageId = messageFrame.getMessageId();
+				waitingAcks.put(messageId, new AckWaiting(channel, acks, sendFrame));
 			}
 		} else {
 			sendReceiptIfRequested(channel, sendFrame);
@@ -400,7 +395,7 @@ public class ServerHandler extends StompHandler {
 		channel.close().awaitUninterruptibly(15000);
 		channel.unbind().awaitUninterruptibly(15000);
 
-		fireDisconnectedListeners(channel);
+		handleDisconnectingClient(channel);
 	}
 
 	public void addListener(StompServerListener stompServerListener) {
@@ -409,6 +404,19 @@ public class ServerHandler extends StompHandler {
 
 	public void removeListener(StompServerListener stompServerListener) {
 		stompServerListeners.remove(stompServerListener);
+	}
+
+	/**
+	 * Clean session information and remove subscriptions for this channel then notify all listeners
+	 * 
+	 * @param channel
+	 */
+	private void handleDisconnectingClient(Channel channel) {
+		// Remove all subscription for this client's session
+		subscriptionManager.removeSubscriptions(clientsSessionToken.get(channel));
+		// Remote session token
+		clientsSessionToken.remove(channel);
+		fireDisconnectedListeners(channel);
 	}
 
 	protected void fireConnectedListeners(Channel channel) {

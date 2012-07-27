@@ -37,7 +37,7 @@ public class Frame {
 	public static final String COMMAND_ERROR = "ERROR";
 
 	public static final String COMMAND_HEARBEAT = "";
-	
+
 	public static final char EOL_COMMAND = '\n';
 	public static final char EOL_HEADER = '\n';
 	public static final char EOL_HEADERS = '\n';
@@ -103,6 +103,7 @@ public class Frame {
 	@Override
 	public String toString() {
 		String formatedBody = (body != null && body.length() > 1000) ? body.substring(0, 1000) + "..." : body;
-		return "Frame [command=" + command + ", header=" + header + ", body=" + formatedBody + "]";
+		return getClass().getSimpleName() + " [command=" + command + ", header=" + header + ", body=" + formatedBody
+				+ "]";
 	}
 }

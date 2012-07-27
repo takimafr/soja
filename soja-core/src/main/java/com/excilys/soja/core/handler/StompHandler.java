@@ -23,7 +23,6 @@ import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelStateEvent;
-import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.SimpleChannelHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,12 +51,6 @@ public abstract class StompHandler extends SimpleChannelHandler {
 		}
 	}
 
-	@Override
-	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-		super.exceptionCaught(ctx, e);
-		LOGGER.error("Remote end channel is closed", e);
-	}
-
 	/**
 	 * Handle HEARTBEAT command
 	 * 
@@ -75,9 +68,10 @@ public abstract class StompHandler extends SimpleChannelHandler {
 	 * @throws SocketException
 	 */
 	public ChannelFuture sendFrame(Channel channel, Frame frame) throws SocketException {
-		LOGGER.trace("Sending : {}", frame);
+		LOGGER.trace("Sending to {} : {}", channel.getRemoteAddress(), frame);
 		if (channel.isConnected())
 			return channel.write(frame);
+
 		throw new SocketException("This channel is not connected to a remote client anymore");
 	}
 
@@ -105,6 +99,7 @@ public abstract class StompHandler extends SimpleChannelHandler {
 						@Override
 						public void run() {
 							try {
+								// TODO: Send an empty stream instead of a fake frame
 								sendFrame(channel, new HeartBeatFrame());
 							} catch (SocketException e) {
 								e.printStackTrace();
@@ -148,8 +143,18 @@ public abstract class StompHandler extends SimpleChannelHandler {
 		this.localExpectedHeartBeat = localExpectedHeartBeat;
 	}
 
+	/**
+	 * Notify all listeners than a remote client has been fully connected
+	 * 
+	 * @param channel
+	 */
 	protected abstract void fireConnectedListeners(Channel channel);
 
+	/**
+	 * Notify all listeners than a remote client has been disconnected
+	 * 
+	 * @param channel
+	 */
 	protected abstract void fireDisconnectedListeners(Channel channel);
 
 }

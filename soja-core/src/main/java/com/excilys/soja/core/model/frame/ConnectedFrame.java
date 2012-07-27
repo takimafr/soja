@@ -15,6 +15,8 @@
  */
 package com.excilys.soja.core.model.frame;
 
+import static com.excilys.soja.core.model.Header.HEADER_HEART_BEAT;
+
 import com.excilys.soja.core.model.Frame;
 import com.excilys.soja.core.model.Header;
 
@@ -36,6 +38,10 @@ public class ConnectedFrame extends Frame {
 	public ConnectedFrame setServerName(String serverName) {
 		setHeaderValue(Header.HEADER_SERVER, serverName);
 		return this;
+	}
+
+	public void setHeartBeat(long localGuaranteedHeartBeat, long localExpectedHeartBeat) {
+		setHeaderValue(HEADER_HEART_BEAT, localGuaranteedHeartBeat + "," + localExpectedHeartBeat);
 	}
 
 }
