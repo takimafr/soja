@@ -29,6 +29,7 @@ import static com.excilys.soja.core.model.Header.HEADER_RECEIPT_ID_REQUEST;
 import static com.excilys.soja.core.model.Header.HEADER_RECEIPT_ID_RESPONSE;
 import static com.excilys.soja.core.model.Header.HEADER_SUBSCRIPTION;
 
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -36,6 +37,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.ExceptionEvent;
@@ -46,6 +48,7 @@ import org.slf4j.LoggerFactory;
 import com.excilys.soja.client.events.StompClientListener;
 import com.excilys.soja.client.events.StompMessageStateCallback;
 import com.excilys.soja.client.events.StompTopicListener;
+import com.excilys.soja.client.exception.NotConnectedException;
 import com.excilys.soja.client.model.Subscription;
 import com.excilys.soja.core.handler.StompHandler;
 import com.excilys.soja.core.model.Ack;
@@ -78,7 +81,7 @@ public class ClientHandler extends StompHandler {
 	@Override
 	public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
 		super.channelDisconnected(ctx, e);
-		LOGGER.debug("Client session {} closed", ctx.getChannel().getRemoteAddress());
+		LOGGER.debug("Client channel {} closed", ctx.getChannel().getRemoteAddress());
 
 		// Notify all listeners
 		for (StompClientListener listener : stompClientListeners) {
@@ -92,7 +95,7 @@ public class ClientHandler extends StompHandler {
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-		LOGGER.debug("Exception thrown by Netty", e.getCause());
+		LOGGER.debug("Exception thrown by Netty", e.getCause().getMessage());
 		ctx.getChannel().close().awaitUninterruptibly(2000);
 	}
 
@@ -159,8 +162,9 @@ public class ClientHandler extends StompHandler {
 	 * Handle MESSAGE command : send back an ACK to the server if asked during subscription, then notify listeners.
 	 * 
 	 * @param frame
+	 * @throws SocketException
 	 */
-	private void handleMessage(final Channel channel, Frame frame) {
+	private void handleMessage(final Channel channel, Frame frame) throws SocketException {
 		String message = frame.getBody();
 		String topic = frame.getHeaderValue(HEADER_DESTINATION);
 		String messageId = frame.getHeaderValue(HEADER_MESSAGE_ID);
@@ -219,8 +223,12 @@ public class ClientHandler extends StompHandler {
 	 * @param frame
 	 * @param callback
 	 * @return true if the frame has been sent, false if the frame couldn't be sent because the user wasn't try to login
+	 * @throws NotConnectedException
+	 *             if the frame to send requiere the user to be connected
+	 * @throws SocketException
 	 */
-	public boolean sendFrame(final Channel channel, Frame frame, StompMessageStateCallback callback) {
+	public ChannelFuture sendFrame(final Channel channel, Frame frame, StompMessageStateCallback callback)
+			throws NotConnectedException, SocketException {
 		if (!isLoginRequested()) {
 			String shortMessage = "You're not logged in";
 			String description = "You must connect to the server before trying to send a " + frame.getCommand()
@@ -233,7 +241,7 @@ public class ClientHandler extends StompHandler {
 					LOGGER.error("ReceivedError listener thrown an exception", err);
 				}
 			}
-			return false;
+			throw new NotConnectedException("You have to be connected to send a " + frame.getCommand() + " command");
 		}
 
 		if (callback != null) {
@@ -243,8 +251,7 @@ public class ClientHandler extends StompHandler {
 				frame.getHeader().put(HEADER_RECEIPT_ID_REQUEST, receiptId);
 			}
 		}
-		sendFrame(channel, frame);
-		return true;
+		return sendFrame(channel, frame);
 	}
 
 	/**
@@ -260,9 +267,10 @@ public class ClientHandler extends StompHandler {
 	 *            a username to use for connection. Leave <code>null</code> to connect as a guest
 	 * @param password
 	 *            a password to use for connection. Leave <code>null</code> to connect as a guest
+	 * @throws SocketException
 	 */
 	public void connect(final Channel channel, String stompVersionSupported, String hostname, String username,
-			String password) {
+			String password) throws SocketException {
 		loginRequested = true;
 
 		ConnectFrame connectFrame = new ConnectFrame(stompVersionSupported, hostname, username, password);
@@ -281,13 +289,17 @@ public class ClientHandler extends StompHandler {
 	 * @param callback
 	 * @param ackMode
 	 * @return the subscription id
+	 * @throws SocketException
+	 * @throws NotConnectedException
 	 */
 	public Long subscribe(final Channel channel, String topic, StompTopicListener topicListener,
-			StompMessageStateCallback callback, Ack ackMode) {
+			StompMessageStateCallback callback, Ack ackMode) throws NotConnectedException, SocketException {
 		SubscribeFrame frame = new SubscribeFrame(topic);
 		frame.setAck(ackMode);
 
-		if (!sendFrame(channel, frame, callback)) {
+		ChannelFuture channelFuture = sendFrame(channel, frame, callback);
+		channelFuture.awaitUninterruptibly();
+		if (!channelFuture.isSuccess()) {
 			return -1L;
 		}
 
@@ -303,8 +315,11 @@ public class ClientHandler extends StompHandler {
 	 * 
 	 * @param subscriptionId
 	 * @param callback
+	 * @throws SocketException
+	 * @throws NotConnectedException
 	 */
-	public void unsubscribe(final Channel channel, Long subscriptionId, StompMessageStateCallback callback) {
+	public void unsubscribe(final Channel channel, Long subscriptionId, StompMessageStateCallback callback)
+			throws NotConnectedException, SocketException {
 		subscriptions.remove(subscriptionId);
 
 		Frame frame = new UnsubscribeFrame(subscriptionId);
@@ -319,9 +334,11 @@ public class ClientHandler extends StompHandler {
 	 * @param message
 	 * @param additionalHeaders
 	 * @param callback
+	 * @throws SocketException
+	 * @throws NotConnectedException
 	 */
 	public void send(final Channel channel, String topic, String message, Map<String, String> additionalHeaders,
-			StompMessageStateCallback callback) {
+			StompMessageStateCallback callback) throws NotConnectedException, SocketException {
 		SendFrame frame = new SendFrame(topic, message);
 
 		if (message.indexOf(Frame.EOL_FRAME) != -1) {

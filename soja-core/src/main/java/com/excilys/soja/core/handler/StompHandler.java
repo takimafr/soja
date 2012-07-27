@@ -15,6 +15,7 @@
  */
 package com.excilys.soja.core.handler;
 
+import java.net.SocketException;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -71,10 +72,13 @@ public abstract class StompHandler extends SimpleChannelHandler {
 	 * 
 	 * @param frame
 	 * @return the {@link ChannelFuture} which will be notified when the write request succeeds or fails
+	 * @throws SocketException
 	 */
-	public ChannelFuture sendFrame(Channel channel, Frame frame) {
+	public ChannelFuture sendFrame(Channel channel, Frame frame) throws SocketException {
 		LOGGER.trace("Sending : {}", frame);
-		return channel.write(frame);
+		if (channel.isConnected())
+			return channel.write(frame);
+		throw new SocketException("This channel is not connected to a remote client anymore");
 	}
 
 	/**
@@ -100,7 +104,11 @@ public abstract class StompHandler extends SimpleChannelHandler {
 					localHeartBeartTimer.scheduleAtFixedRate(new TimerTask() {
 						@Override
 						public void run() {
-							sendFrame(channel, new HeartBeatFrame());
+							try {
+								sendFrame(channel, new HeartBeatFrame());
+							} catch (SocketException e) {
+								e.printStackTrace();
+							}
 						}
 					}, 0, heartBeatInterval);
 

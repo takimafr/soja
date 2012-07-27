@@ -37,6 +37,7 @@ import static com.excilys.soja.core.model.Header.HEADER_TRANSACTION;
 import static com.excilys.soja.server.StompServer.STOMP_VERSION;
 
 import java.net.SocketAddress;
+import java.net.SocketException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -162,9 +163,10 @@ public class ServerHandler extends StompHandler {
 	 * Handle CONNECT command
 	 * 
 	 * @param frame
+	 * @throws SocketException
 	 */
 	public void handleConnect(final Channel channel, Frame frame) throws LoginException, UnsupportedVersionException,
-			AlreadyConnectedException {
+			AlreadyConnectedException, SocketException {
 		// Retrieve the session for this client
 		if (clientsSessionToken.containsKey(channel)) {
 			throw new AlreadyConnectedException("User try to connect but it seems to be already connected");
@@ -208,8 +210,9 @@ public class ServerHandler extends StompHandler {
 	 * Handle DISCONNECT command
 	 * 
 	 * @param frame
+	 * @throws SocketException
 	 */
-	public void handleDisconnect(Channel channel, Frame frame) {
+	public void handleDisconnect(Channel channel, Frame frame) throws SocketException {
 		// Remove all subscription for this client's session
 		subscriptionManager.removeSubscriptions(clientsSessionToken.get(channel));
 
@@ -220,8 +223,9 @@ public class ServerHandler extends StompHandler {
 	 * Handle SEND command
 	 * 
 	 * @param sendFrame
+	 * @throws SocketException
 	 */
-	public void handleSend(Channel channel, Frame sendFrame) {
+	public void handleSend(Channel channel, Frame sendFrame) throws SocketException {
 		String topic = sendFrame.getHeaderValue(HEADER_DESTINATION);
 
 		synchronized (authentication) {
@@ -282,8 +286,9 @@ public class ServerHandler extends StompHandler {
 	 * Handle SUBSCRIBE command
 	 * 
 	 * @param frame
+	 * @throws SocketException
 	 */
-	public void handleSubscribe(Channel channel, Frame frame) {
+	public void handleSubscribe(Channel channel, Frame frame) throws SocketException {
 		String topic = frame.getHeaderValue(HEADER_DESTINATION);
 		Long subscriptionId = Long.valueOf(frame.getHeaderValue(HEADER_SUBSCRIPTION_ID));
 		Ack ackMode = Ack.parseAck(frame.getHeaderValue(HEADER_ACK));
@@ -301,8 +306,9 @@ public class ServerHandler extends StompHandler {
 	 * Handle UNSUBSCRIBE command
 	 * 
 	 * @param frame
+	 * @throws SocketException
 	 */
-	public void handleUnsubscribe(Channel channel, Frame frame) {
+	public void handleUnsubscribe(Channel channel, Frame frame) throws SocketException {
 		Long subscriptionId = Long.valueOf(frame.getHeaderValue(HEADER_SUBSCRIPTION_ID));
 
 		subscriptionManager.removeSubscription(clientsSessionToken.get(channel), subscriptionId);
@@ -313,8 +319,9 @@ public class ServerHandler extends StompHandler {
 	 * Handle ACK command
 	 * 
 	 * @param frame
+	 * @throws SocketException
 	 */
-	public void handleAck(Channel channel, Frame frame) {
+	public void handleAck(Channel channel, Frame frame) throws SocketException {
 		Long subscriptionId = Long.valueOf(frame.getHeaderValue(HEADER_SUBSCRIPTION));
 		String messageId = frame.getHeaderValue(HEADER_MESSAGE_ID);
 
@@ -336,8 +343,9 @@ public class ServerHandler extends StompHandler {
 	 * Handle UNKNOWN command
 	 * 
 	 * @param frame
+	 * @throws SocketException
 	 */
-	public void handleUnknown(Channel channel, Frame frame) {
+	public void handleUnknown(Channel channel, Frame frame) throws SocketException {
 		sendError(channel, "Unkown command", "The command '" + frame.getCommand() + "' is unkown and can't be managed");
 	}
 
@@ -346,8 +354,9 @@ public class ServerHandler extends StompHandler {
 	 * 
 	 * @param shortMessage
 	 * @param detailedMessage
+	 * @throws SocketException
 	 */
-	public void sendError(Channel channel, String shortMessage, String detailedMessage) {
+	public void sendError(Channel channel, String shortMessage, String detailedMessage) throws SocketException {
 		ErrorFrame errorFrame = new ErrorFrame(shortMessage);
 		if (detailedMessage != null) {
 			errorFrame.setDescription(detailedMessage);
@@ -360,8 +369,9 @@ public class ServerHandler extends StompHandler {
 	 * 
 	 * @param frame
 	 * @return true if a receipt was requests, false else
+	 * @throws SocketException
 	 */
-	public boolean sendReceiptIfRequested(Channel channel, Frame frame) {
+	public boolean sendReceiptIfRequested(Channel channel, Frame frame) throws SocketException {
 		Frame receiptFrame = FrameFactory.createReceipt(frame);
 		if (receiptFrame != null) {
 			sendFrame(channel, receiptFrame);

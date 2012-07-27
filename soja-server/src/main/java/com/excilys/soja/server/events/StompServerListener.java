@@ -13,20 +13,18 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package com.excilys.soja.client.events;
+package com.excilys.soja.server.events;
+
+import java.net.SocketAddress;
 
 /**
- * Global client listener. It's used for beeing notified when the client has been connected or disconnected, and also
- * when he received an error from the server.
- * 
  * @author dvilleneuve
+ * 
  */
-public interface StompClientListener {
+public interface StompServerListener {
 
-	void connected();
+	void clientConnected(SocketAddress remoteSocket);
 
-	void disconnected();
-
-	void receivedError(String shortMessage, String description);
+	void clientDisconnected(SocketAddress remoteSocket);
 
 }

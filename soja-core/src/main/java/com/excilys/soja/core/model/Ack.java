@@ -15,7 +15,6 @@
  */
 package com.excilys.soja.core.model;
 
-
 /**
  * This enum is used when a client subscribe to a topic.
  * <p/>
@@ -34,7 +33,7 @@ public enum Ack {
 	AUTO("auto"),
 
 	/**
-	 * The client <b>must send</b> the server ACK frames for the messages it processes.
+	 * The client <b>must send</b> to the server ACK frames for the messages it processes.
 	 * <p/>
 	 * The ACK frames sent by the client will <b>be treated</b> as a cumulative ACK. This means the ACK operates on the
 	 * message specified in the ACK frame and all messages sent to the subscription before the ACK-ed message.
@@ -42,7 +41,7 @@ public enum Ack {
 	CLIENT("client"),
 
 	/**
-	 * The client <b>must send</b> the server ACK frames for the messages it processes.
+	 * The client <b>must send</b> to the server ACK frames for the messages it processes.
 	 * <p/>
 	 * The ACK frames sent by the client will <b>not be treated</b> as a cumulative ACK. This means that an ACK or NACK
 	 * for a subsequent message MUST NOT cause a previous message to get acknowledged.
