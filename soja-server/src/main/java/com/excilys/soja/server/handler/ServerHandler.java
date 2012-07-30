@@ -104,7 +104,7 @@ public class ServerHandler extends StompHandler {
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-		LOGGER.debug("Exception thrown by Netty. Closing channel : {}", e.getCause().getMessage());
+		LOGGER.debug("Exception thrown by Netty. Closing channel : {}", e.getCause());
 		ctx.getChannel().close().awaitUninterruptibly(2000);
 	}
 
@@ -390,7 +390,7 @@ public class ServerHandler extends StompHandler {
 	}
 
 	private void disconnectClient(Channel channel) {
-		LOGGER.debug("Disconnecting client session {}...", channel.getRemoteAddress());
+		LOGGER.debug("Disconnecting client {}...", channel.getRemoteAddress());
 
 		channel.close().awaitUninterruptibly(15000);
 		channel.unbind().awaitUninterruptibly(15000);

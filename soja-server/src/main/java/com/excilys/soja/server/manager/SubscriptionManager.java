@@ -134,6 +134,8 @@ public class SubscriptionManager {
 	 */
 	public synchronized void removeSubscriptions(String clientSessionToken) {
 		Map<Long, Subscription> removedClientSubscriptions = clientsSubscriptions.remove(clientSessionToken);
+		if (removedClientSubscriptions == null)
+			return;
 
 		// Topics subscriptions
 		Collection<Subscription> removedSubscriptions = removedClientSubscriptions.values();

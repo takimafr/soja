@@ -215,17 +215,9 @@ public class ClientHandler extends StompHandler {
 	public ChannelFuture sendFrame(final Channel channel, Frame frame, StompMessageStateCallback callback)
 			throws NotConnectedException, SocketException {
 		if (!isLoginRequested()) {
-			String shortMessage = "You're not logged in";
-			String description = "You must connect to the server before trying to send a " + frame.getCommand()
-					+ " command";
+			fireReceivedErrorListeners(channel, "You're not logged in",
+					"You must connect to the server before trying to send a " + frame.getCommand() + " command");
 
-			for (StompClientListener stompClientListener : stompClientListeners) {
-				try {
-					stompClientListener.receivedError(shortMessage, description);
-				} catch (Exception err) {
-					LOGGER.error("ReceivedError listener thrown an exception", err);
-				}
-			}
 			throw new NotConnectedException("You have to be connected to send a " + frame.getCommand() + " command");
 		}
 
@@ -376,6 +368,16 @@ public class ClientHandler extends StompHandler {
 				stompClientListener.disconnected();
 			} catch (Exception err) {
 				LOGGER.error("Disconnect listener thrown an exception", err);
+			}
+		}
+	}
+
+	protected void fireReceivedErrorListeners(Channel channel, String shortMessage, String description) {
+		for (StompClientListener stompClientListener : stompClientListeners) {
+			try {
+				stompClientListener.receivedError(shortMessage, description);
+			} catch (Exception err) {
+				LOGGER.error("Received error listener thrown an exception", err);
 			}
 		}
 	}

@@ -59,6 +59,9 @@ public class StompFrameDecoder extends FrameDecoder {
 	protected Object decode(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer) throws Exception {
 		// COMMAND
 		String command = readString(buffer, Frame.EOL_COMMAND);
+		if (command == null)
+			return null;
+
 		if (isValidCommand(command)) {
 			currentFrame = new Frame(command, new Header(), null);
 		} else {
