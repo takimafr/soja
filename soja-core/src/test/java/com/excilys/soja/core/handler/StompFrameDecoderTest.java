@@ -15,7 +15,7 @@ public class StompFrameDecoderTest {
 
 	private Object decode(String value) throws Exception {
 		ChannelBuffer channelBuffer = ChannelBuffers.wrappedBuffer(value.getBytes());
-		return frameDecoder.decode(null, null, channelBuffer);
+		return frameDecoder.decode(null, null, channelBuffer, null);
 	}
 
 	@Test
@@ -57,6 +57,11 @@ public class StompFrameDecoderTest {
 		expectedFrame.setCommand(Frame.COMMAND_SEND);
 
 		assertEquals(expectedFrame, decode("SEND\n\n\0"));
+	}
+
+	@Test
+	public void testDecode_two_time() throws Exception {
+		// TODO: Handle message arriving in two times (ex: 1: SEND\n, 2: test-key:....)
 	}
 
 	@Test

@@ -38,5 +38,4 @@ public class StompPipelineFactory implements ChannelPipelineFactory {
 
 		return pipeline;
 	}
-
 }

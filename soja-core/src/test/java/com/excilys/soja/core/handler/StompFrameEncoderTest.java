@@ -17,13 +17,14 @@ public class StompFrameEncoderTest {
 	public void testEncode() throws Exception {
 		Frame frame = new Frame();
 		frame.setCommand(Frame.COMMAND_SEND);
-		frame.setHeaderValue("test-key", "test-value");
+		frame.setHeaderValue("test-key1", "test-value1");
+		frame.setHeaderValue("test-key2", "test-value2");
 		frame.setBody("body test");
 
 		ChannelBuffer frameBuffer = (ChannelBuffer) frameEncoder.encode(null, null, frame);
 		String frameString = frameBuffer.toString(CharsetUtil.UTF_8);
 
-		assertEquals("SEND\ntest-key:test-value\n\nbody test\0", frameString);
+		assertEquals("SEND\ntest-key1:test-value1\ntest-key2:test-value2\n\nbody test\0", frameString);
 	}
 
 	@Test

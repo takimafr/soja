@@ -16,6 +16,9 @@
 package com.excilys.soja.core.handler;
 
 import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
@@ -24,6 +27,7 @@ import org.jboss.netty.handler.codec.oneone.OneToOneEncoder;
 
 import com.excilys.soja.core.model.Frame;
 import com.excilys.soja.core.model.Header;
+import com.excilys.soja.core.model.frame.HeartBeatFrame;
 
 /**
  * @author dvilleneuve
@@ -35,6 +39,8 @@ public class StompFrameEncoder extends OneToOneEncoder {
 	protected Object encode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
 		if (!(msg instanceof Frame)) {
 			return msg;
+		} else if (msg instanceof HeartBeatFrame) {
+			return ChannelBuffers.wrappedBuffer(new byte[] { '\n' });
 		}
 
 		Frame frame = (Frame) msg;
@@ -45,14 +51,17 @@ public class StompFrameEncoder extends OneToOneEncoder {
 		if (command != null && command.length() > 0) {
 			formatedFrame.append(command).append(Frame.EOL_COMMAND);
 		} else {
-			return "";
+			throw new IllegalArgumentException("Command can't be empty");
 		}
 
 		// HEADER
 		Header header = frame.getHeader();
 		if (header != null) {
 			if (header.size() > 0) {
-				for (String key : header.keySet()) {
+				List<String> keys = new ArrayList<String>(header.keySet());
+				Collections.sort(keys);
+
+				for (String key : keys) {
 					formatedFrame.append(key).append(Frame.SEPARATOR_HEADER).append(header.get(key))
 							.append(Frame.EOL_HEADER);
 				}
@@ -68,6 +77,7 @@ public class StompFrameEncoder extends OneToOneEncoder {
 
 		formatedFrame.append(Frame.EOL_FRAME);
 		String frameString = formatedFrame.toString();
+
 		return ChannelBuffers.copiedBuffer((String) frameString, Charset.forName("UTF-8"));
 	}
 

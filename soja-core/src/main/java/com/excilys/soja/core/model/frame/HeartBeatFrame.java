@@ -27,4 +27,9 @@ public class HeartBeatFrame extends Frame {
 		super(Frame.COMMAND_HEARBEAT, null, null);
 	}
 
+	@Override
+	public String toString() {
+		return "HeartBeatFrame";
+	}
+
 }

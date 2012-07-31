@@ -71,7 +71,7 @@ public abstract class StompHandler extends SimpleChannelHandler {
 		if (frame == null)
 			throw new NullPointerException();
 
-		LOGGER.trace("Sending to {} : {}", channel.getRemoteAddress(), frame);
+		LOGGER.trace("Sending frame to {} : {}", channel.getRemoteAddress(), frame);
 		if (channel.isConnected())
 			return channel.write(frame);
 

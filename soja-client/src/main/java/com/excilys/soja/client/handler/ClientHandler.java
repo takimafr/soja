@@ -104,7 +104,7 @@ public class ClientHandler extends StompHandler {
 		if (frame.isCommand(Frame.COMMAND_ERROR)) {
 			LOGGER.error("STOMP error '{}' : {}", frame.getHeaderValue(HEADER_MESSAGE), frame.getBody());
 		} else {
-			LOGGER.trace("Received frame : {}", frame);
+			LOGGER.trace("Received frame from {} : {}", channel.getRemoteAddress(), frame);
 
 			// CONNECTED
 			if (frame.isCommand(COMMAND_CONNECTED)) {

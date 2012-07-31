@@ -23,7 +23,6 @@ import static com.excilys.soja.core.model.Frame.COMMAND_CONNECT;
 import static com.excilys.soja.core.model.Frame.COMMAND_CONNECTED;
 import static com.excilys.soja.core.model.Frame.COMMAND_DISCONNECT;
 import static com.excilys.soja.core.model.Frame.COMMAND_ERROR;
-import static com.excilys.soja.core.model.Frame.COMMAND_HEARBEAT;
 import static com.excilys.soja.core.model.Frame.COMMAND_MESSAGE;
 import static com.excilys.soja.core.model.Frame.COMMAND_NACK;
 import static com.excilys.soja.core.model.Frame.COMMAND_RECEIPT;
@@ -32,127 +31,103 @@ import static com.excilys.soja.core.model.Frame.COMMAND_SUBSCRIBE;
 import static com.excilys.soja.core.model.Frame.COMMAND_UNSUBSCRIBE;
 
 import org.apache.commons.lang.ArrayUtils;
-import org.apache.commons.lang.StringUtils;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.handler.codec.frame.FrameDecoder;
+import org.jboss.netty.handler.codec.replay.ReplayingDecoder;
+import org.jboss.netty.handler.codec.replay.VoidEnum;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.excilys.soja.core.exception.ParseException;
 import com.excilys.soja.core.model.Frame;
 import com.excilys.soja.core.model.Header;
+import com.excilys.soja.core.model.frame.HeartBeatFrame;
 
 /**
  * @author dvilleneuve
  * 
  */
-public class StompFrameDecoder extends FrameDecoder {
+public class StompFrameDecoder extends ReplayingDecoder<VoidEnum> {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(StompFrameDecoder.class);
 
 	private static final String[] VALID_COMMANDS = { COMMAND_CONNECT, COMMAND_DISCONNECT, COMMAND_SEND,
 			COMMAND_MESSAGE, COMMAND_SUBSCRIBE, COMMAND_UNSUBSCRIBE, COMMAND_BEGIN, COMMAND_COMMIT, COMMAND_ABORT,
-			COMMAND_RECEIPT, COMMAND_CONNECTED, COMMAND_ERROR, COMMAND_ACK, COMMAND_NACK, COMMAND_HEARBEAT };
+			COMMAND_RECEIPT, COMMAND_CONNECTED, COMMAND_ERROR, COMMAND_ACK, COMMAND_NACK };
 	private static final String[] COMMANDS_WITH_BODY = { COMMAND_SEND, COMMAND_MESSAGE, COMMAND_ERROR };
 
-	private Frame currentFrame;
+	public StompFrameDecoder() {
+		super(true);
+	}
 
 	@Override
-	protected Object decode(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer) throws Exception {
+	protected Object decode(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer, VoidEnum state)
+			throws Exception {
+		// If the stream is just a new line, return an heart beat frame
+		if (buffer.readableBytes() > 0 && buffer.bytesBefore((byte) '\n') == 0) {
+			buffer.readByte();
+			return new HeartBeatFrame();
+		}
+
+		Frame currentFrame = null;
+
 		// COMMAND
 		String command = readString(buffer, Frame.EOL_COMMAND);
-		if (command == null)
-			return null;
-
 		if (isValidCommand(command)) {
 			currentFrame = new Frame(command, new Header(), null);
 		} else {
-			if (currentFrame == null) {
-				throw new ParseException(command + " is not a valid command");
-			} else {
-				String oldBody = currentFrame.getBody();
-
-				long contentLength = 0;
-				String contentLengthString = currentFrame.getHeaderValue(Header.HEADER_CONTENT_LENGTH);
-				if (contentLengthString != null) {
-					contentLength = Long.parseLong(contentLengthString);
-				}
-
-				String bodyPart = null;
-				while ((bodyPart = readString(buffer, Frame.EOL_FRAME)) != null) {
-					oldBody += bodyPart + Frame.EOL_FRAME;
-				}
-				String bodyString = StringUtils.chop(oldBody);
-				if (bodyString != null && !bodyString.isEmpty()) {
-					currentFrame.setBody(bodyString);
-				}
-
-				if ((oldBody.length() + buffer.readableBytes()) < contentLength) {
-					// Ask for more data because there are not enough according to content-length header
-					return null;
-				} else {
-					Frame frame = currentFrame;
-					currentFrame = null;
-					return frame;
-				}
-			}
+			LOGGER.trace("Invalid command : {}", command);
+			return null;
 		}
 
-		// HEADER
+		// HEADERS
 		String headerLine = null;
 		while ((headerLine = readString(buffer, Frame.EOL_HEADER)) != null) {
-			if (headerLine == null || headerLine.isEmpty()) {
-				break;
-			}
-
 			String[] headerParts = headerLine.split(":");
 			if (headerParts.length == 2) {
 				currentFrame.setHeaderValue(headerParts[0], unescapeHeaderValue(headerParts[1]));
 			}
 		}
+		buffer.readByte();
 
 		// BODY
-		if (isExpectedBody(command)) {
-			long contentLength = 0;
+		if (isExpectedBody(currentFrame.getCommand())) {
+			String body = null;
+
 			String contentLengthString = currentFrame.getHeaderValue(Header.HEADER_CONTENT_LENGTH);
-			if (contentLengthString != null) {
-				contentLength = Long.parseLong(contentLengthString);
+			if (contentLengthString != null && Long.parseLong(contentLengthString) > 0) {
+				int contentLength = Integer.parseInt(contentLengthString);
+
+				body = readString(buffer, contentLength);
+				buffer.readByte();
+			} else {
+				body = readString(buffer, Frame.EOL_FRAME);
 			}
 
-			int currentBodyLength = buffer.readableBytes();
-
-			StringBuilder body = new StringBuilder();
-			String bodyPart = null;
-
-			while ((bodyPart = readString(buffer, Frame.EOL_FRAME)) != null) {
-				body.append(bodyPart).append(Frame.EOL_FRAME);
-			}
-			String bodyString = StringUtils.chop(body.toString());
-			if (bodyString != null && !bodyString.isEmpty()) {
-				currentFrame.setBody(bodyString);
-			}
-
-			if (currentBodyLength < contentLength) {
-				// Ask for more data because there are not enough according to content-length header
-				return null;
+			if (body != null && !body.isEmpty()) {
+				currentFrame.setBody(body);
 			}
 		} else {
-			if (currentFrame.getHeader().size() > 0) {
-				buffer.skipBytes(1); // Skip the headers separator
-			}
+			buffer.readByte(); // NULL at end of frame
 		}
 
-		Frame frame = currentFrame;
-		currentFrame = null;
-		return frame;
+		return currentFrame;
+
 	}
 
 	private String readString(ChannelBuffer buffer, char delimiter) {
 		int bytesBefore = buffer.bytesBefore((byte) delimiter);
-		if (bytesBefore == -1)
+		if (bytesBefore <= 0)
 			return null;
 
-		byte[] value = new byte[bytesBefore];
-		buffer.readBytes(value);
+		String value = readString(buffer, bytesBefore);
 		buffer.skipBytes(1); // Skip the delimiter
+		return value;
+	}
+
+	private String readString(ChannelBuffer buffer, int length) {
+		byte[] value = new byte[length];
+		buffer.readBytes(value);
 		return new String(value);
 	}
 

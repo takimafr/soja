@@ -116,7 +116,7 @@ public class ServerHandler extends StompHandler {
 		}
 		Channel channel = ctx.getChannel();
 		Frame frame = (Frame) event.getMessage();
-		LOGGER.trace("Received frame : {}", frame);
+		LOGGER.trace("Received frame from {} : {}", channel.getRemoteAddress(), frame);
 
 		// CONNECT
 		if (frame.isCommand(COMMAND_CONNECT)) {
