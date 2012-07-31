@@ -19,8 +19,8 @@ import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
 
-import com.excilys.soja.core.handler.StompFrameEncoder;
 import com.excilys.soja.core.handler.StompFrameDecoder;
+import com.excilys.soja.core.handler.StompFrameEncoder;
 
 /**
  * @author dvilleneuve

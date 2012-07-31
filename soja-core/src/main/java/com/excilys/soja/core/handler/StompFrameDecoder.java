@@ -80,9 +80,10 @@ public class StompFrameDecoder extends FrameDecoder {
 				while ((bodyPart = readString(buffer, Frame.EOL_FRAME)) != null) {
 					oldBody += bodyPart + Frame.EOL_FRAME;
 				}
-				currentFrame.setBody(StringUtils.chop(oldBody));
-
-				System.out.println(oldBody.length() + buffer.readableBytes());
+				String bodyString = StringUtils.chop(oldBody);
+				if (bodyString != null && !bodyString.isEmpty()) {
+					currentFrame.setBody(bodyString);
+				}
 
 				if ((oldBody.length() + buffer.readableBytes()) < contentLength) {
 					// Ask for more data because there are not enough according to content-length header
@@ -124,7 +125,10 @@ public class StompFrameDecoder extends FrameDecoder {
 			while ((bodyPart = readString(buffer, Frame.EOL_FRAME)) != null) {
 				body.append(bodyPart).append(Frame.EOL_FRAME);
 			}
-			currentFrame.setBody(StringUtils.chop(body.toString()));
+			String bodyString = StringUtils.chop(body.toString());
+			if (bodyString != null && !bodyString.isEmpty()) {
+				currentFrame.setBody(bodyString);
+			}
 
 			if (currentBodyLength < contentLength) {
 				// Ask for more data because there are not enough according to content-length header
@@ -160,7 +164,10 @@ public class StompFrameDecoder extends FrameDecoder {
 		return command != null && ArrayUtils.contains(COMMANDS_WITH_BODY, command);
 	}
 
-	private String unescapeHeaderValue(String headerValue) {
+	public static String unescapeHeaderValue(String headerValue) {
+		if (headerValue == null)
+			return headerValue;
+
 		headerValue = headerValue.replace("\\n", "\n");
 		headerValue = headerValue.replace("\\c", ":");
 		headerValue = headerValue.replace("\\\\", "\\");

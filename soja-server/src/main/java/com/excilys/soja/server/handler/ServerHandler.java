@@ -200,7 +200,7 @@ public class ServerHandler extends StompHandler {
 			}
 
 			sendFrame(channel, connectedFrame);
-
+			
 			fireConnectedListeners(channel);
 		} catch (LoginException e) {
 			sendError(channel, "Bad credentials", "Username or passcode incorrect");

@@ -68,6 +68,9 @@ public abstract class StompHandler extends SimpleChannelHandler {
 	 * @throws SocketException
 	 */
 	public ChannelFuture sendFrame(Channel channel, Frame frame) throws SocketException {
+		if (frame == null)
+			throw new NullPointerException();
+
 		LOGGER.trace("Sending to {} : {}", channel.getRemoteAddress(), frame);
 		if (channel.isConnected())
 			return channel.write(frame);

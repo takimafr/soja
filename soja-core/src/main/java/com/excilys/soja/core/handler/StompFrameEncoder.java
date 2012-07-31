@@ -56,9 +56,9 @@ public class StompFrameEncoder extends OneToOneEncoder {
 					formatedFrame.append(key).append(Frame.SEPARATOR_HEADER).append(header.get(key))
 							.append(Frame.EOL_HEADER);
 				}
-				formatedFrame.append(Frame.EOL_HEADERS);
 			}
 		}
+		formatedFrame.append(Frame.EOL_HEADERS);
 
 		// BODY
 		String body = frame.getBody();
@@ -72,9 +72,12 @@ public class StompFrameEncoder extends OneToOneEncoder {
 	}
 
 	public static String escapeHeaderValue(String headerValue) {
-		headerValue = headerValue.replace("\n", "\n");
-		headerValue = headerValue.replace(":", "\\c");
+		if (headerValue == null)
+			return null;
+
 		headerValue = headerValue.replace("\\", "\\\\");
+		headerValue = headerValue.replace("\n", "\\n");
+		headerValue = headerValue.replace(":", "\\c");
 
 		return headerValue;
 	}
