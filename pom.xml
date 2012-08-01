@@ -13,6 +13,7 @@
 		<maven-compiler-plugin.version>2.4</maven-compiler-plugin.version>
 		<maven-assembly-plugin.version>2.3</maven-assembly-plugin.version>
 		<maven-release-plugin.version>2.3</maven-release-plugin.version>
+		<maven-source-plugin.version>2.1.2</maven-source-plugin.version>
 		<maven-dependency-plugin.version>2.4</maven-dependency-plugin.version>
 
 		<netty.version>3.4.5.Final</netty.version>
@@ -90,6 +91,7 @@
 						<target>${java.version}</target>
 					</configuration>
 				</plugin>
+
 				<plugin>
 					<artifactId>maven-assembly-plugin</artifactId>
 					<version>${maven-assembly-plugin.version}</version>
@@ -109,13 +111,42 @@
 					</executions>
 				</plugin>
 
+				<!-- Copy all dependencies in the folder target/lib -->
 				<plugin>
 					<artifactId>maven-dependency-plugin</artifactId>
 					<version>${maven-dependency-plugin.version}</version>
+					<executions>
+						<execution>
+							<phase>install</phase>
+							<goals>
+								<goal>copy-dependencies</goal>
+							</goals>
+							<configuration>
+								<outputDirectory>${project.build.directory}/lib</outputDirectory>
+							</configuration>
+						</execution>
+					</executions>
 				</plugin>
 
 				<plugin>
-					<!-- Use release:prepare then release:deploy (or release:rollback to cancel) -->
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-source-plugin</artifactId>
+					<version>${maven-source-plugin.version}</version>
+					<configuration>
+						<attach>false</attach>
+					</configuration>
+					<executions>
+						<execution>
+							<phase>package</phase> <!-- bind to the packaging phase -->
+							<goals>
+								<goal>jar</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+
+				<!-- Use release:prepare then release:deploy (or release:rollback to cancel) -->
+				<plugin>
 					<artifactId>maven-release-plugin</artifactId>
 					<version>${maven-release-plugin.version}</version>
 				</plugin>
@@ -147,27 +178,5 @@
 				</plugin>
 			</plugins>
 		</pluginManagement>
-
-		<plugins>
-			<!-- Copy all dependencies in the folder target/lib -->
-			<plugin>
-				<artifactId>maven-dependency-plugin</artifactId>
-				<executions>
-					<execution>
-						<phase>install</phase>
-						<goals>
-							<goal>copy-dependencies</goal>
-						</goals>
-						<configuration>
-							<outputDirectory>${project.build.directory}/lib</outputDirectory>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-
-			<plugin>
-				<artifactId>maven-assembly-plugin</artifactId>
-			</plugin>
-		</plugins>
 	</build>
 </project>
