@@ -394,8 +394,6 @@ public class ServerHandler extends StompHandler {
 
 		channel.close().awaitUninterruptibly(15000);
 		channel.unbind().awaitUninterruptibly(15000);
-
-		handleDisconnectingClient(channel);
 	}
 
 	public void addListener(StompServerListener stompServerListener) {
