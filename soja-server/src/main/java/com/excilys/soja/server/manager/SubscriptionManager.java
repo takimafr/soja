@@ -76,6 +76,13 @@ public class SubscriptionManager {
 	 */
 	public synchronized Subscription addSubscription(Channel channel, String clientSessionToken, Long subscriptionId,
 			String topic, Ack ackMode) {
+		if (clientSessionToken == null || clientSessionToken.isEmpty())
+			throw new NullPointerException("clientSessionToken can't be null nor empty");
+		if (subscriptionId == null)
+			throw new NullPointerException("subscriptionId can't be null");
+		if (topic == null || clientSessionToken.isEmpty())
+			throw new NullPointerException("topic can't be null nor empty");
+
 		Subscription subscription = new Subscription(channel, subscriptionId, topic, ackMode);
 
 		// Clients subscriptions
@@ -105,26 +112,38 @@ public class SubscriptionManager {
 	 * @return true if the client has subscribed to this topic, false else
 	 */
 	public synchronized boolean removeSubscription(String clientSessionToken, Long subscriptionId) {
+		if (clientSessionToken == null || clientSessionToken.isEmpty())
+			return false;
+		if (subscriptionId == null)
+			return false;
+
 		// Clients subscriptions
 		Map<Long, Subscription> clientSubscriptions = retrieveSubscriptionsByToken(clientSessionToken);
-		if (clientSubscriptions != null) {
-			Subscription removedSubscription = clientSubscriptions.remove(subscriptionId);
-			if (removedSubscription != null) {
-				// If this client has no more subscriptions, remove his subscription Map to free memory
-				if (clientSubscriptions.isEmpty()) {
-					clientsSubscriptions.remove(clientSessionToken);
-				}
+		if (clientSubscriptions == null) {
+			return false;
+		}
 
-				// Topics subscriptions
-				Set<Subscription> topicSubscriptions = retrieveSubscriptionsByTopic(removedSubscription.getTopic());
-				if (topicSubscriptions != null) {
-					topicSubscriptions.remove(removedSubscription);
-				}
+		Subscription removedSubscription = clientSubscriptions.remove(subscriptionId);
 
-				return true;
+		// If this client has no more subscriptions, remove his subscription Map to free memory
+		if (clientSubscriptions.isEmpty()) {
+			clientsSubscriptions.remove(clientSessionToken);
+		}
+
+		if (removedSubscription != null) {
+			// Topics subscriptions
+			Set<Subscription> topicSubscriptions = retrieveSubscriptionsByTopic(removedSubscription.getTopic());
+			if (topicSubscriptions != null) {
+				topicSubscriptions.remove(removedSubscription);
+
+				// If this topic has no more subscriptions, remove his subscription Set to free memory
+				if (topicSubscriptions.isEmpty()) {
+					topicsSubscriptions.remove(removedSubscription.getTopic());
+				}
 			}
 		}
-		return false;
+
+		return true;
 	}
 
 	/**
@@ -132,10 +151,13 @@ public class SubscriptionManager {
 	 * 
 	 * @param topic
 	 */
-	public synchronized void removeSubscriptions(String clientSessionToken) {
+	public synchronized boolean removeSubscriptions(String clientSessionToken) {
+		if (clientSessionToken == null || clientSessionToken.isEmpty())
+			return false;
+
 		Map<Long, Subscription> removedClientSubscriptions = clientsSubscriptions.remove(clientSessionToken);
 		if (removedClientSubscriptions == null)
-			return;
+			return false;
 
 		// Topics subscriptions
 		Collection<Subscription> removedSubscriptions = removedClientSubscriptions.values();
@@ -145,6 +167,8 @@ public class SubscriptionManager {
 				topicSubscriptions.remove(removedSubscription);
 			}
 		}
+
+		return true;
 	}
 
 }

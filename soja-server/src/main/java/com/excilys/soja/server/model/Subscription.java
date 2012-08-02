@@ -19,7 +19,6 @@ import org.jboss.netty.channel.Channel;
 
 import com.excilys.soja.core.model.Ack;
 
-
 /**
  * @author dvilleneuve
  * 
@@ -100,8 +99,13 @@ public class Subscription implements Comparable<Subscription> {
 
 	@Override
 	public int compareTo(Subscription o) {
-		String id1 = channel.getId().toString() + subscriptionId;
-		String id2 = o.getChannel().getId().toString() + o.getSubscriptionId();
+		if (o == null)
+			return -1;
+
+		String channel1 = channel == null ? "" : channel.getId().toString();
+		String channel2 = o.getChannel() == null ? "" : o.getChannel().getId().toString();
+		String id1 = channel1 + subscriptionId;
+		String id2 = channel2 + o.getSubscriptionId();
 		return id1.compareTo(id2);
 	}
 }
