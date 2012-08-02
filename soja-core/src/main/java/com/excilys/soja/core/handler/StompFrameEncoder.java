@@ -62,7 +62,9 @@ public class StompFrameEncoder extends OneToOneEncoder {
 				Collections.sort(keys);
 
 				for (String key : keys) {
-					formatedFrame.append(key).append(Frame.SEPARATOR_HEADER).append(header.get(key))
+					formatedFrame.append(escapeHeader(key)) //
+							.append(Frame.SEPARATOR_HEADER) //
+							.append(escapeHeader(header.get(key))) //
 							.append(Frame.EOL_HEADER);
 				}
 			}
@@ -81,7 +83,7 @@ public class StompFrameEncoder extends OneToOneEncoder {
 		return ChannelBuffers.copiedBuffer((String) frameString, Charset.forName("UTF-8"));
 	}
 
-	public static String escapeHeaderValue(String headerValue) {
+	public static String escapeHeader(String headerValue) {
 		if (headerValue == null)
 			return null;
 

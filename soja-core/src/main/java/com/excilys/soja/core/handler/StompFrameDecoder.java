@@ -85,7 +85,7 @@ public class StompFrameDecoder extends ReplayingDecoder<VoidEnum> {
 		while ((headerLine = readString(buffer, Frame.EOL_HEADER)) != null) {
 			String[] headerParts = headerLine.split(":");
 			if (headerParts.length == 2) {
-				currentFrame.setHeaderValue(headerParts[0], unescapeHeaderValue(headerParts[1]));
+				currentFrame.setHeaderValue(unescapeHeader(headerParts[0]), unescapeHeader(headerParts[1]));
 			}
 		}
 		buffer.readByte();
@@ -139,15 +139,15 @@ public class StompFrameDecoder extends ReplayingDecoder<VoidEnum> {
 		return command != null && ArrayUtils.contains(COMMANDS_WITH_BODY, command);
 	}
 
-	public static String unescapeHeaderValue(String headerValue) {
-		if (headerValue == null)
-			return headerValue;
+	public static String unescapeHeader(String string) {
+		if (string == null)
+			return string;
 
-		headerValue = headerValue.replace("\\n", "\n");
-		headerValue = headerValue.replace("\\c", ":");
-		headerValue = headerValue.replace("\\\\", "\\");
+		string = string.replace("\\n", "\n");
+		string = string.replace("\\c", ":");
+		string = string.replace("\\\\", "\\");
 
-		return headerValue;
+		return string;
 	}
 
 }
