@@ -48,6 +48,8 @@ import javax.security.auth.login.LoginException;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.ExceptionEvent;
@@ -217,10 +219,18 @@ public class ServerHandler extends StompHandler {
 	 * @param frame
 	 * @throws SocketException
 	 */
-	public void handleDisconnect(Channel channel, Frame frame) throws SocketException {
-		sendReceiptIfRequested(channel, frame);
+	public void handleDisconnect(final Channel channel, Frame frame) throws SocketException {
+		ChannelFuture channelFuture = sendReceiptIfRequested(channel, frame);
 
-		handleDisconnectingClient(channel);
+		// If a receipt was sent, wait until the request is completed before processing disconnection
+		if (channelFuture != null) {
+			channelFuture.addListener(new ChannelFutureListener() {
+				@Override
+				public void operationComplete(ChannelFuture future) throws Exception {
+					handleDisconnectingClient(channel);
+				}
+			});
+		}
 	}
 
 	/**
@@ -369,19 +379,18 @@ public class ServerHandler extends StompHandler {
 	}
 
 	/**
-	 * Send a receipt if it was requested
+	 * Send a receipt if it was requested.
 	 * 
 	 * @param frame
-	 * @return true if a receipt was requests, false else
+	 * @return a <code>ChannelFuture</code> if a receipt was requests, <code>null</code> else
 	 * @throws SocketException
 	 */
-	public boolean sendReceiptIfRequested(Channel channel, Frame frame) throws SocketException {
+	public ChannelFuture sendReceiptIfRequested(Channel channel, Frame frame) throws SocketException {
 		Frame receiptFrame = FrameFactory.createReceipt(frame);
 		if (receiptFrame != null) {
-			sendFrame(channel, receiptFrame);
-			return true;
+			return sendFrame(channel, receiptFrame);
 		}
-		return false;
+		return null;
 	}
 
 	public void disconnectAllClients() {
