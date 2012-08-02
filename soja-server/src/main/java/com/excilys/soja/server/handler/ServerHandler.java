@@ -200,7 +200,7 @@ public class ServerHandler extends StompHandler {
 			}
 
 			sendFrame(channel, connectedFrame);
-			
+
 			fireConnectedListeners(channel);
 		} catch (LoginException e) {
 			sendError(channel, "Bad credentials", "Username or passcode incorrect");
@@ -241,47 +241,46 @@ public class ServerHandler extends StompHandler {
 		subscriptions = subscriptionManager.retrieveSubscriptionsByTopic(topic);
 
 		if (subscriptions != null && subscriptions.size() > 0) {
-			sendReceiptIfRequested(channel, sendFrame);
-			return;
-		}
+			// Construct the MESSAGE frame
+			MessageFrame messageFrame = new MessageFrame(topic, sendFrame.getBody(), null);
 
-		// Construct the MESSAGE frame
-		MessageFrame messageFrame = new MessageFrame(topic, sendFrame.getBody(), null);
-
-		// Add content-type if it was present on the SEND command
-		String contentType = sendFrame.getHeaderValue(HEADER_CONTENT_TYPE);
-		if (contentType != null) {
-			messageFrame.setContentType(contentType);
-		}
-
-		// Add user keys if there was some on the SEND command
-		Set<String> userKeys = sendFrame.getHeader().allKeys(SEND_USER_HEADERS_FILTER);
-		for (String userKey : userKeys) {
-			messageFrame.getHeader().put(userKey, sendFrame.getHeaderValue(userKey));
-		}
-
-		// Create a set of subscription which will be used for ACKs requests
-		TreeSet<Long> acks = new TreeSet<Long>();
-
-		// Send the message frame to each subscriber
-		for (Subscription subscription : subscriptions) {
-			// If an ack is needed for this client, add the subscription to the ACKs queue.
-			if (subscription.getAckMode() != Ack.AUTO) {
-				acks.add(subscription.getSubscriptionId());
+			// Add content-type if it was present on the SEND command
+			String contentType = sendFrame.getHeaderValue(HEADER_CONTENT_TYPE);
+			if (contentType != null) {
+				messageFrame.setContentType(contentType);
 			}
 
-			messageFrame.setHeaderValue(HEADER_SUBSCRIPTION, subscription.getSubscriptionId().toString());
-			sendFrame(subscription.getChannel(), messageFrame);
-		}
-
-		if (acks.size() > 0) {
-			synchronized (waitingAcks) {
-				String messageId = messageFrame.getMessageId();
-				waitingAcks.put(messageId, new AckWaiting(channel, acks, sendFrame));
+			// Add user keys if there was some on the SEND command
+			Set<String> userKeys = sendFrame.getHeader().allKeys(SEND_USER_HEADERS_FILTER);
+			for (String userKey : userKeys) {
+				messageFrame.getHeader().put(userKey, sendFrame.getHeaderValue(userKey));
 			}
-		} else {
-			sendReceiptIfRequested(channel, sendFrame);
+
+			// Create a set of subscription which will be used for ACKs requests
+			TreeSet<Long> acks = new TreeSet<Long>();
+
+			// Send the message frame to each subscriber
+			for (Subscription subscription : subscriptions) {
+				// If an ack is needed for this client, add the subscription to the ACKs queue.
+				if (subscription.getAckMode() != Ack.AUTO) {
+					acks.add(subscription.getSubscriptionId());
+				}
+
+				messageFrame.setHeaderValue(HEADER_SUBSCRIPTION, subscription.getSubscriptionId().toString());
+				sendFrame(subscription.getChannel(), messageFrame);
+			}
+
+			if (acks.size() > 0) {
+				synchronized (waitingAcks) {
+					String messageId = messageFrame.getMessageId();
+					waitingAcks.put(messageId, new AckWaiting(channel, acks, sendFrame));
+				}
+			} else {
+				sendReceiptIfRequested(channel, sendFrame);
+				return;
+			}
 		}
+		sendReceiptIfRequested(channel, sendFrame);
 	}
 
 	/**
