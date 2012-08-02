@@ -21,10 +21,10 @@ import javax.security.auth.login.LoginException;
  * @author dvilleneuve
  * 
  */
-public class AllowAllAuthentication implements Authentication {
-	
+public class AllowAllAuthentication extends Authentication {
+
 	public String connect(String username, String password) throws LoginException {
-		return "token-" + username;
+		return generateToken(username);
 	}
 
 	public boolean canSend(String token, String topic) {

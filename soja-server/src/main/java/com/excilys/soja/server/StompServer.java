@@ -38,7 +38,8 @@ public class StompServer {
 
 	public static final String STOMP_VERSION = "1.1";
 	public static final String SERVER_VERSION = "1.0";
-	public static final String SERVER_NAME = "StompServer";
+	public static final String SERVER_NAME = "Soja";
+	public static final String SERVER_HEADER_VALUE = SERVER_NAME + "/" + SERVER_VERSION;
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(StompServer.class);
 

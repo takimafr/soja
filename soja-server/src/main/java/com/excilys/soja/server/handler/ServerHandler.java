@@ -62,6 +62,7 @@ import com.excilys.soja.core.model.frame.ConnectedFrame;
 import com.excilys.soja.core.model.frame.ErrorFrame;
 import com.excilys.soja.core.model.frame.MessageFrame;
 import com.excilys.soja.core.utils.FrameFactory;
+import com.excilys.soja.server.StompServer;
 import com.excilys.soja.server.authentication.Authentication;
 import com.excilys.soja.server.events.StompServerListener;
 import com.excilys.soja.server.exception.AlreadyConnectedException;
@@ -193,6 +194,8 @@ public class ServerHandler extends StompHandler {
 
 			// Create the frame to send
 			ConnectedFrame connectedFrame = new ConnectedFrame(STOMP_VERSION);
+			connectedFrame.setSession(clientSessionToken);
+			connectedFrame.setServerName(StompServer.SERVER_HEADER_VALUE);
 
 			// Start the heart-beat scheduler if needed
 			if (startLocalHeartBeat(channel, frame)) {

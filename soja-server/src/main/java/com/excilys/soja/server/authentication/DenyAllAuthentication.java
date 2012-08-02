@@ -21,7 +21,7 @@ import javax.security.auth.login.LoginException;
  * @author dvilleneuve
  * 
  */
-public class DenyAllAuthentication implements Authentication {
+public class DenyAllAuthentication extends Authentication {
 
 	public String connect(String username, String password) throws LoginException {
 		throw new LoginException();

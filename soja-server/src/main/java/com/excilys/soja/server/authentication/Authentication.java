@@ -15,19 +15,35 @@
  */
 package com.excilys.soja.server.authentication;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
 import javax.security.auth.login.LoginException;
 
 /**
  * @author dvilleneuve
  * 
  */
-public interface Authentication {
-	
+public abstract class Authentication {
+
 	public static final Authentication ALLOW_ALL_INSTANCE = new AllowAllAuthentication();
 	public static final Authentication DENY_ALL_INSTANCE = new DenyAllAuthentication();
 
+	private static MessageDigest md5Digest;
+	private static int counter = 0;
+
+	static {
+
+		try {
+			md5Digest = MessageDigest.getInstance("MD5");
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		}
+	}
+
 	/**
-	 * Try to authenticate a user.
+	 * Try to authenticate a user. If authentication failed a LoginException will be thrown, else a <b>UNIQUE</b>
+	 * session token will be returned. This token will be used internally and will be sent in the CONNECTED frame.
 	 * 
 	 * @param username
 	 * @param password
@@ -35,7 +51,7 @@ public interface Authentication {
 	 * @throws LoginException
 	 *             if connection failed
 	 */
-	public String connect(String username, String password) throws LoginException;
+	public abstract String connect(String username, String password) throws LoginException;
 
 	/**
 	 * Get authorization to send a message on a specific topic.
@@ -44,7 +60,7 @@ public interface Authentication {
 	 * @param topic
 	 * @return true if the user identified by the token can publish on this topic, false else
 	 */
-	public boolean canSend(String token, String topic);
+	public abstract boolean canSend(String token, String topic);
 
 	/**
 	 * Get authorization to subscribe to a specific topic.
@@ -53,6 +69,23 @@ public interface Authentication {
 	 * @param topic
 	 * @return true if the user identified by the token can subscribe to this topic, false else
 	 */
-	public boolean canSubscribe(String token, String topic);
+	public abstract boolean canSubscribe(String token, String topic);
+
+	public String generateToken(String username) {
+		String plainToken = "token-" + (++counter) + "-" + username;
+		byte[] digestedToken = md5Digest.digest(plainToken.getBytes());
+		return convertHexToString(digestedToken);
+	}
+
+	private String convertHexToString(byte[] bytes) {
+		StringBuilder hexString = new StringBuilder();
+		for (int i = 0; i < bytes.length; i++) {
+			String hex = Integer.toHexString(0xff & bytes[i]);
+			if (hex.length() == 1)
+				hexString.append('0');
+			hexString.append(hex);
+		}
+		return hexString.toString();
+	}
 
 }
