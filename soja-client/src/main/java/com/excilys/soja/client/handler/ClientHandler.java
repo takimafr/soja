@@ -81,14 +81,13 @@ public class ClientHandler extends StompHandler {
 	public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
 		super.channelDisconnected(ctx, e);
 		LOGGER.debug("Client channel {} closed", ctx.getChannel().getRemoteAddress());
-
 		fireDisconnectedListeners(ctx.getChannel());
 	}
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
 		LOGGER.debug("Exception thrown by Netty : {}", e.getCause().getMessage());
-		ctx.getChannel().close().awaitUninterruptibly(2000);
+		ctx.getChannel().close();
 	}
 
 	@Override

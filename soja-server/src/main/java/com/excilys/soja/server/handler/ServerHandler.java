@@ -105,7 +105,7 @@ public class ServerHandler extends StompHandler {
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
 		LOGGER.debug("Exception thrown by Netty. Closing channel : {}", e.getCause());
-		ctx.getChannel().close().awaitUninterruptibly(2000);
+		ctx.getChannel().close();
 	}
 
 	@Override
