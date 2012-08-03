@@ -3,7 +3,7 @@
 	<parent>
 		<artifactId>soja-parent</artifactId>
 		<groupId>com.excilys.soja</groupId>
-		<version>1.2-SNAPSHOT</version>
+		<version>1.2</version>
 		<relativePath>..</relativePath>
 	</parent>
 	<artifactId>soja-core</artifactId>
