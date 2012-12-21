@@ -77,6 +77,10 @@ public class StompClient {
 		this.clientBootstrap.setOption("keepAlive", true);
 	}
 
+	public boolean isConnected() {
+		return channel.isConnected();
+	}
+
 	/**
 	 * Connect to the server as a guest (username and password will be <code>null</code>) with default timeout value
 	 * (30s)
