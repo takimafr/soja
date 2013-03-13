@@ -12,3 +12,13 @@ I needed a project which fit the following points :
 * lightweight implementation ;
 * one project for both client and server side ;
 * and client need to be compatible with Dalvik JVM of Android smartphones.
+
+# Logging
+
+This library use [SLF4J](http://www.slf4j.org/) as a logging interface. You can use any implementation compatible with it such as : 
+
+* [Logback](http://logback.qos.ch/)
+* [Logback-android](https://github.com/tony19/logback-android)
+* [Log4j](http://logging.apache.org/log4j/1.2/)
+
+And other…
