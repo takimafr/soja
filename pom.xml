@@ -17,7 +17,7 @@
 		<maven-source-plugin.version>2.1.2</maven-source-plugin.version>
 		<maven-dependency-plugin.version>2.4</maven-dependency-plugin.version>
 
-		<netty.version>3.4.5.Final</netty.version>
+		<netty.version>3.9.8.Final</netty.version>
 		<commons-lang.version>2.6</commons-lang.version>
 		<slf4j.version>1.6.4</slf4j.version>
 
